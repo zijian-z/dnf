@@ -150,7 +150,7 @@ docker restart dnf
 <a id="upgrade"></a>
 ## 从旧版本升级
 
-> ⚠️ **重要提示**：如果您是从旧版本升级到包含DofSlim的版本(镜像发布时间2025.10.20)，请务必执行以下操作，否则`CLIENT_POOL_SIZE`可能无法生效，最终导致降低服务端内存效果无法生效。
+> ⚠️ **重要提示**：如果您是从旧版本升级到包含DofSlim的版本(镜像发布时间2025.10.20)，请务必执行以下操作，否则可能无法降低服务端内存占用。
 
 请先删除 Docker 镜像挂载目录中的以下两个脚本文件：
 
@@ -252,7 +252,7 @@ docker restart dnf
 
     A: 若您的系统版本是 Win11 24H2 及以上版本，可降级到23H2及以下版本后重新打开游戏。
 
-18. 配置了CLIENT_POOL_SIZE之后发现服务端内存占用依然为1.3GB
+18. 配置了CLIENT_POOL_SIZE之后发现`df_bridge_r`和`df_channel_r`内存占用依然都为1.3GB
 
     A: 若您是从旧版本升级而来，请先删除docker挂载目录中的`/data/run/start_bridge.sh`和`/data/run/start_channel.sh`，之后重启服务端即可生效。
 
