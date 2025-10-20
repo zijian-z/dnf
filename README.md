@@ -17,7 +17,7 @@
 ## 3.0.0 Release Plan 
 ```
 1. 支持假人
-2. 通过插件支持几款登陆器
+2. 通过插件支持几款登录器
 ```
 
 ## 2025年计划
@@ -64,9 +64,10 @@ mkdir -p /data/log /data/mysql /data/data
 # DNF_DB_ROOT_PASSWORD 为 mysql root 密码，容器启动时会自动将 root 用户的密码修改为此值
 # WEB_USER 为 supervisor web 管理页面用户名
 # WEB_PASS 为 supervisor web 管理页面密码（可以访问 PUBLIC_IP:2000 来访问进程管理页面）
+# CLIENT_POOL_SIZE 为 服务端启动是分配的客户端池大小，若单人使用可设置为3，多人使用请按需求增加，最大可分配1000
 # --shm-size=8g【不可删除】，docker默认为64M较小，需要增加才能保证运行
 # 注意，最后的 llnut/dnf:centos7-qf1031-latest 部分中的 centos7，你在上一步拉取得哪个版本，则应替换为哪个版本
-docker run -d -e PUBLIC_IP=x.x.x.x -e WEB_USER=root -e WEB_PASS=123456 -e DNF_DB_ROOT_PASSWORD=88888888 -e GM_ACCOUNT=gmuser -e GM_PASSWORD=gmpass -v /data/log:/home/neople/game/log -v /data/mysql:/var/lib/mysql -v /data/data:/data -p 2000:180 -p 3000:3306/tcp -p 7600:7600/tcp -p 881:881/tcp -p 7001:7001/tcp -p 7001:7001/udp -p 30011:30011/tcp -p 31011:31011/udp -p 30052:30052/tcp -p 31052:31052/udp -p 7300:7300/tcp -p 7300:7300/udp -p 2311-2313:2311-2313/udp --cap-add=NET_ADMIN --hostname=dnf --cpus=1 --memory=1g --memory-swap=-1 --shm-size=8g --name=dnf llnut/dnf:centos7-qf1031-latest
+docker run -d -e PUBLIC_IP=x.x.x.x -e WEB_USER=root -e WEB_PASS=123456 -e DNF_DB_ROOT_PASSWORD=88888888 -e GM_ACCOUNT=gmuser -e GM_PASSWORD=gmpass -e CLIENT_POOL_SIZE=10 -v /data/log:/home/neople/game/log -v /data/mysql:/var/lib/mysql -v /data/data:/data -p 2000:180 -p 3000:3306/tcp -p 7600:7600/tcp -p 881:881/tcp -p 7001:7001/tcp -p 7001:7001/udp -p 30011:30011/tcp -p 31011:31011/udp -p 30052:30052/tcp -p 31052:31052/udp -p 7300:7300/tcp -p 7300:7300/udp -p 2311-2313:2311-2313/udp --cap-add=NET_ADMIN --hostname=dnf --cpus=1 --memory=1g --memory-swap=-1 --shm-size=8g --name=dnf llnut/dnf:centos7-qf1031-latest
 ```
 
 ## 如何确认已经成功启动
@@ -152,7 +153,7 @@ docker restart dnf
    A: 无法使用虚拟机 Console、VNC 等访问 Windows  
    A: WIN+R 输入 dxdiag 检查显示-DirectX 功能是否全部开启  
    A: 没有覆盖客户端补丁  
-   A: 统一登陆器 5.x 版本，需要添加`hosts`[start.dnf.tw]，否则无法进入频道
+   A: 统一登录器 5.x 版本，需要添加`hosts`[start.dnf.tw]，否则无法进入频道
 
 2. 服务端不出五国
 
@@ -177,7 +178,7 @@ docker restart dnf
    A: 检查云服务器厂商相关端口是否放开  
    A: 客户端 windows 是否配置 hosts  
    A: PUBLIC_IP 是否填错，windows 需要能够访问到这个配置的 PUBLIC_IP  
-   A: 使用统一补丁需要检查网关生成的登陆器的 IP  
+   A: 使用统一补丁需要检查网关生成的登录器的 IP  
    A: 公钥私钥文件是否匹配
 
 6. 点击登录后报错（请重新安装 Init ）
@@ -194,11 +195,11 @@ docker restart dnf
    A: 检查云服务器厂商相关端口是否放开  
    A: 五国未成功跑出
 
-9. 登陆器版本过期,请下载最新登陆器
+9. 登录器版本过期,请下载最新登录器
 
    A: 生成登录器，需要和【网关设置】中登录器版本一致
 
-10. 正在连接网关，登陆器无法连接网关
+10. 正在连接网关，登录器无法连接网关
 
     A: 检查 Linux 服务端防火墙是否关闭  
     A: 检查云服务器厂商相关端口是否放开  
@@ -262,26 +263,26 @@ docker restart dnf
 点击`网关设置`栏 其中，
     网关地址: 为部署服务端时候填写 PUBLIC_IP 的值
     网关端口: `881` （设置到此处后点击连接，用于验证是否能正常连接上网关）
-    登陆账号: `gmuser`
-    登陆密码: `gmpass`
+    登录账号: `gmuser`
+    登录密码: `gmpass`
     通信密钥: `763WXRBW3PFTC3IXPFWH`
     登录器端口:  `7600`
 
 如上设置完成后，点击最下方 参数设置内容立刻生效 按钮
 
-如上设置完成后，点击`登陆器设置`页面
+如上设置完成后，点击`登录器设置`页面
     服务器名称: 可以随意填写
-    登陆器版本: `20180307`
+    登录器版本: `20180307`
     线路名称: 可以随意填写
     游戏地址: 为部署服务端时候填写`PUBLIC_IP`的值
-    登陆器端口: `7600`
+    登录器端口: `7600`
     网关地址: 为部署服务端时候填写`PUBLIC_IP`的值
 设置完成后一定要点击**增加**按钮
     通信密钥: `763WXRBW3PFTC3IXPFWH`
-最后点击**生成登陆器**按钮（可能会有卡顿，请耐心等待）
+最后点击**生成登录器**按钮（可能会有卡顿，请耐心等待）
 
 #### 4: 最后
-将第三步生产的登陆器，复制到游戏根目录中打开即可进入游戏，登陆游戏记得先去创建账号
+将第三步生产的登录器，复制到游戏根目录中打开即可进入游戏，登录游戏记得先去创建账号
 注意： 如上客户端初始化步骤中的参数为 docker 部署服务端时填写的默认参数，如有变动，请按照实际数据填写
 
 ## 沟通交流
@@ -300,7 +301,8 @@ QQ 5群：738105518
 
 ## 社区
 
-`libhook.so`优化CPU占用源码：https://godbolt.org/z/EKsYGh5dv
+`libhook.so`优化CPU占用源码：[https://godbolt.org/z/EKsYGh5dv](https://godbolt.org/z/EKsYGh5dv)
+`bridge_hook.so`和`channel_hook.so`优化服务端内存占用源码：[https://github.com/llnut/DofSlim](https://github.com/llnut/DofSlim)
 
 ## 申明
 ```
