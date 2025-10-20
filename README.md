@@ -12,7 +12,9 @@
 请通过[百度网盘链接](https://pan.baidu.com/s/1Dv_nezYrduQy-jkSbk2uIA?pwd=6fwh)下载完整清风客户端， 提取码为: `6fwh`，解压客户端并覆盖网盘中清风最新的更新包中到客户端。登录器可使用 **统一网关在线管理工具** 生成，清风客户端的登录器只能用于本地游戏。
 
 ### 服务端部署
-除 [Docker 镜像](https://hub.docker.com/r/llnut/dnf/tags)需替换之外，服务端部署方式与 [1995chen/dnf](https://github.com/1995chen/dnf) 保持一致。若您正在进行初次部署，也可参考[快速开始](#quick-start)进行部署。
+除 [Docker 镜像](https://hub.docker.com/r/llnut/dnf/tags)需替换之外，服务端部署方式与 [1995chen/dnf](https://github.com/1995chen/dnf) 保持一致。
+若您正在进行初次部署，可参考[快速开始](#quick-start)进行部署。
+若您需要从旧版本升级，请务必阅读[此部分内容](#upgrade)。
 
 ## 3.0.0 Release Plan 
 ```
@@ -145,6 +147,19 @@ docker restart dnf
 
 或在进程管理页面`http://PUBLIC_IP:2000`页面手动重启相关进程。
 
+<a id="upgrade"></a>
+## 从旧版本升级
+
+> ⚠️ **重要提示**：如果您是从旧版本升级到包含DofSlim的版本(镜像发布时间2025.10.20)，请务必执行以下操作，否则`CLIENT_POOL_SIZE`可能无法生效，最终导致降低服务端内存效果无法生效。
+
+请先删除 Docker 镜像挂载目录中的以下两个脚本文件：
+
+```bash
+/data/run/start_bridge.sh
+/data/run/start_channel.sh
+```
+之后重启服务端。
+
 ## 常见问题
 
 1. 点击网关登录，没反应，不出游戏（请透过Garena+执行）
@@ -236,6 +251,10 @@ docker restart dnf
 17. 打开游戏报错: ijl15.dll 没有被指定在 Windows 上运行，或者它包含错误。请尝试使用原始安装介质重新安装程序。或联系您的系统管理员或软件供应商以获得支持。
 
     A: 若您的系统版本是 Win11 24H2 及以上版本，可降级到23H2及以下版本后重新打开游戏。
+
+18. 配置了CLIENT_POOL_SIZE之后发现服务端内存占用依然为1.3GB
+
+    A: 若您是从旧版本升级而来，请先删除docker挂载目录中的`/data/run/start_bridge.sh`和`/data/run/start_channel.sh`，之后重启服务端即可生效。
 
 ## 高级部署
 **此部分文档与[1995chen/dnf](https://github.com/1995chen/dnf)一致，请手动替换 Docker 镜像为本仓库提供的清风版本**
