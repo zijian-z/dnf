@@ -321,8 +321,9 @@ QQ 5群：738105518
 
 ## 社区
 
-`libhook.so`优化CPU占用源码：[https://godbolt.org/z/EKsYGh5dv](https://godbolt.org/z/EKsYGh5dv)
-`bridge_hook.so`和`channel_hook.so`优化服务端内存占用源码：[https://github.com/llnut/DofSlim](https://github.com/llnut/DofSlim)
+`libhook.so`优化CPU占用源码：[https://godbolt.org/z/EKsYGh5dv](https://godbolt.org/z/EKsYGh5dv)  
+`bridge_hook.so`和`channel_hook.so`优化服务端内存占用源码：[https://github.com/llnut/DofSlim](https://github.com/llnut/DofSlim)  
+`Sorahk`多功能高性能连发程序: [https://github.com/llnut/Sorahk](https://github.com/llnut/Sorahk)  
 
 ## 申明
 ```
@@ -342,4 +343,5 @@ QQ 5群：738105518
 在未来的道路上，我将继续努力改进和完善这个项目，以回报您的支持与信任。希望我们能够继续保持联系，共同见证这个项目的成长与发展。
 
 再次感谢您的支持与帮助！
+
 
