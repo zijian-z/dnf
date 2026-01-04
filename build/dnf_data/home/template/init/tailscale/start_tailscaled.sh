@@ -2,7 +2,7 @@
 
 # 检查PUBLIC IP
 if [ -z "$PUBLIC_IP" ] && [ -n "$TS_AUTH_KEY" ] && [ -n "$TS_LOGIN_SERVER" ]; then
-    /usr/bin/tailscaled --state=/data/tailscale/tailscaled.state --socket=/data/tailscale/tailscaled.sock --tun=userspace-networking
+    /usr/bin/tailscaled --state=/data/tailscale/tailscaled.state --socket=/data/tailscale/tailscaled.sock
 else
     echo "no need to start tailscaled"
 fi

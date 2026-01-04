@@ -8,6 +8,9 @@ services:
     # privileged: true
     # cap_add:
     #   - NET_ADMIN
+    # tailscale必须配置devices
+    #devices:
+    #  - /dev/net/tun:/dev/net/tun
     environment:
       - TZ=Asia/Shanghai
       - SERVER_GROUP=3
