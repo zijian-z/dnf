@@ -1759,19 +1759,17 @@ function clear_doing_questEx(user, quest_id)
 //修复绝望之塔 skip_user_apc: 为true时, 跳过每10层的UserAPC
 function fix_TOD(skip_user_apc)
 {
-    //每日进入次数限制
-    //TOD_UserState::getEnterCount
-    //Interceptor.attach(ptr(0x08643872),
-    //{
-        //onEnter: function (args)
-        //{
-            //今日已进入次数强制清零
-            //args[0].add(0x10).writeInt(0);
-        //},
-        //onLeave: function (retval)
-        //{
-        //}
-    //});
+    //挑战成功后可以继续使用门票挑战
+    Interceptor.attach(ptr(0x0864387E),
+    {
+        onEnter: function (args)
+        {
+        },
+        onLeave: function (retval)
+        {
+            retval.replace(0);
+        }
+    });
 
     //每10层挑战玩家APC 服务器内角色不足10个无法进入
     if(skip_user_apc)
