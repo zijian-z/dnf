@@ -9,7 +9,7 @@
 
 ## 清风1031适配方式
 ### 客户端选择
-请通过[百度网盘链接](https://pan.baidu.com/s/107Kks6v2idViaRERq7QIKA?pwd=qffk)下载完整清风客户端， 提取码为: `qffk`，解压客户端并覆盖网盘中清风最新的更新包中到客户端。登录器可使用 **统一网关在线管理工具** 生成，清风客户端的登录器只能用于本地游戏。
+请通过[百度网盘链接](https://pan.baidu.com/s/1AuDJ-VO4A9uToAsrg6ETGw?pwd=sora)下载完整清风客户端， 提取码为: `sora`，解压客户端并覆盖网盘中清风最新的更新包中到客户端。登录器可使用 **统一网关在线管理工具** 生成，清风客户端的登录器只能用于本地游戏。
 
 ### 服务端部署
 除 [Docker 镜像](https://hub.docker.com/r/llnut/dnf/tags)需替换之外，服务端部署方式与 [1995chen/dnf](https://github.com/1995chen/dnf) 保持一致。
@@ -249,8 +249,8 @@ docker restart dnf
 [点击查看更多部署方式](doc/OtherDeploy.md)
 
 ## 客户端地址下载
-链接：https://pan.baidu.com/s/107Kks6v2idViaRERq7QIKA?pwd=qffk 
-提取码：qffk
+链接：https://pan.baidu.com/s/1AuDJ-VO4A9uToAsrg6ETGw?pwd=sora 
+提取码：sora
 
 ### 统一网关下载
 链接：https://pan.baidu.com/s/1Ea80rBlPQ4tY5P18ikucfw?pwd=bbd0 提取码：bbd0
