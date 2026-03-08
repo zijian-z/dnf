@@ -39,6 +39,16 @@ export DDNS_INTERVAL=$(echo $DDNS_INTERVAL | sed "s/[\'\"]//g")
 export NB_SETUP_KEY=$(echo $NB_SETUP_KEY | sed "s/[\'\"]//g")
 export NB_MANAGEMENT_URL=$(echo $NB_MANAGEMENT_URL | sed "s/[\'\"]//g")
 export CLIENT_POOL_SIZE="$(echo "${CLIENT_POOL_SIZE:-10}" | sed "s/[\'\"]//g")"
+export GATE_AES_KEY=$(echo $GATE_AES_KEY | sed "s/[\'\"]//g")
+export GATE_BIND_ADDRESS=$(echo $GATE_BIND_ADDRESS | sed "s/[\'\"]//g")
+export GATE_RUST_LOG=$(echo $GATE_RUST_LOG | sed "s/[\'\"]//g")
+export RSA_PRIVATE_KEY_PATH=$(echo $RSA_PRIVATE_KEY_PATH | sed "s/[\'\"]//g")
+export INITIAL_CERA=$(echo $INITIAL_CERA | sed "s/[\'\"]//g")
+export INITIAL_CERA_POINT=$(echo $INITIAL_CERA_POINT | sed "s/[\'\"]//g")
+export GATE_TLS_CERT_PATH=$(echo $GATE_TLS_CERT_PATH | sed "s/[\'\"]//g")
+export GATE_TLS_KEY_PATH=$(echo $GATE_TLS_KEY_PATH | sed "s/[\'\"]//g")
+export GATE_TLS_BIND_ADDRESS=$(echo $GATE_TLS_BIND_ADDRESS | sed "s/[\'\"]//g")
+export GATE_TLS_ONLY=$(echo $GATE_TLS_ONLY | sed "s/[\'\"]//g")
 # 校验用户选择的大区
 SERVER_GROUP_NAME_VAR="SERVER_GROUP_NAME_$SERVER_GROUP"
 if [ "$SERVER_GROUP" -ge 1 ] && [ "$SERVER_GROUP" -le 6 ]; then
@@ -158,12 +168,6 @@ fi
 # 删除无用文件
 rm -rf /home/template/neople-tmp
 mkdir -p /home/neople
-# 清理root下文件
-rm -rf /root/DnfGateServer
-rm -rf /root/GateRestart
-rm -rf /root/GateStop
-rm -rf /root/Config.ini
-rm -rf /root/privatekey.pem
 
 # 复制待使用文件
 cp -r /home/template/neople /home/template/neople-tmp
@@ -193,25 +197,20 @@ chmod 777 /home/neople/game/df_game_r
 cp /data/publickey.pem /home/neople/game/
 # 为DP目录赋予权限[为了支持更多未知场景, 这里直接给整个目录777权限]
 chmod 777 -R /data/dp
-# 重置root目录
-cp /home/template/root/* /root/
-chmod 777 /root/*
-# 拷贝证书key
-cp /data/privatekey.pem /root/
-# 构建配置文件软链[不能使用硬链接, 硬链接不可跨设备]
-ln -s /data/Config.ini /root/Config.ini
-# 替换Config.ini中的GM用户名、密码、连接KEY、登录器版本[这里操作的对象是一个软链接不需要指定-type]
-sed -i "s/GAME_PASSWORD/$DNF_DB_GAME_PASSWORD/g" `find /data -name "*.ini"`
-sed -i "s/GM_ACCOUNT/$GM_ACCOUNT/g" `find /data -name "*.ini"`
-sed -i "s/GM_PASSWORD/$GM_PASSWORD/g" `find /data -name "*.ini"`
-sed -i "s/GM_CONNECT_KEY/$GM_CONNECT_KEY/g" `find /data -name "*.ini"`
-sed -i "s/GM_LANDER_VERSION/$GM_LANDER_VERSION/g" `find /data -name "*.ini"`
 # 重设supervisor web网页密码
 sed -i "s/^username=.*/username=$WEB_USER/" /etc/supervisord.conf
 sed -i "s/^password=.*/password=$WEB_PASS/" /etc/supervisord.conf
 # 传递环境变量
 SUPERVISORD_ENV="MAIN_BRIDGE_IP=\"$MAIN_BRIDGE_IP\",SERVER_GROUP_NAME=\"$SERVER_GROUP_NAME\",SERVER_GROUP_DB=\"$SERVER_GROUP_DB\",CUR_MAIN_DB_HOST=\"$CUR_MAIN_DB_HOST\",CUR_MAIN_DB_PORT=\"$CUR_MAIN_DB_PORT\",CUR_SG_DB_HOST=\"$CUR_SG_DB_HOST\",CUR_SG_DB_PORT=\"$CUR_SG_DB_PORT\""
 sed -i "s/^environment=.*/environment=$SUPERVISORD_ENV/" /etc/supervisord.conf
+# 传递dnf-gate-server环境变量
+GATE_ENV="DB_HOST=\"$CUR_MAIN_DB_HOST\",DB_PORT=\"$CUR_MAIN_DB_PORT\",DB_USER=\"$DB_USER\",DB_PASSWORD=\"$DNF_DB_GAME_PASSWORD\",DB_NAME=\"$DB_NAME\",AES_KEY=\"$GATE_AES_KEY\",RSA_PRIVATE_KEY_PATH=\"$RSA_PRIVATE_KEY_PATH\",BIND_ADDRESS=\"$GATE_BIND_ADDRESS\",INITIAL_CERA=\"$INITIAL_CERA\",INITIAL_CERA_POINT=\"$INITIAL_CERA_POINT\",TLS_BIND_ADDRESS=\"$GATE_TLS_BIND_ADDRESS\",TLS_ONLY=\"$GATE_TLS_ONLY\",RUST_LOG=\"$GATE_RUST_LOG\""
+[ -n "$GATE_TLS_CERT_PATH" ] && GATE_ENV+=",TLS_CERT_PATH=\"$GATE_TLS_CERT_PATH\""
+[ -n "$GATE_TLS_KEY_PATH" ] && GATE_ENV+=",TLS_KEY_PATH=\"$GATE_TLS_KEY_PATH\""
+# 转义supervisord Python格式字符串中的%，以及sed replacement中的&和\
+GATE_ENV="${GATE_ENV//%/%%}"
+GATE_ENV=$(printf '%s' "$GATE_ENV" | sed 's/[\\&]/\\&/g')
+sed -i "s|^environment=.*|environment=$GATE_ENV|" /etc/supervisor/conf.d/gate.conf
 # 切换到主目录
 cd /root
 supervisord -c /etc/supervisord.conf

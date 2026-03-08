@@ -4,16 +4,19 @@ services:
 
   dnf-1:
     hostname: dnf-1
-    image: llnut/dnf:centos7-latest
+    image: llnut/dnf:centos7-qf1031-latest
     environment:
       - TZ=Asia/Shanghai
       - SERVER_GROUP=3
       # 数据库root密码
       - DNF_DB_ROOT_PASSWORD=88888888
-      - GM_ACCOUNT=gmuser
-      - GM_PASSWORD=gmpass
-      - GM_CONNECT_KEY=763WXRBW3PFTC3IXPFWH
-      - GM_LANDER_VERSION=20180307
+      # dnf-gate-server配置
+      - GATE_AES_KEY=a1b2c3d4e5f6789012345678901234567890abcdef0123456789abcdef012345
+      # TLS配置（可选，GATE_TLS_CERT_PATH与GATE_TLS_KEY_PATH同时设置时启用）
+      # - GATE_TLS_CERT_PATH=/data/server.crt
+      # - GATE_TLS_KEY_PATH=/data/server.key
+      # - GATE_TLS_BIND_ADDRESS=0.0.0.0:5504
+      # - GATE_TLS_ONLY=false
       # 手动指定对外IP
       - PUBLIC_IP=127.0.0.1
       # 仅开启11和52频道
@@ -28,8 +31,8 @@ services:
     ports:
       - 2000:180/tcp              # supervisor web
       - 3000:3306/tcp             # mysql
-      - 7600:7600/tcp             # 统一登陆器
-      - 881:881/tcp               # 统一网关
+      - 5505:5505/tcp             # dnf-gate-server http
+      # - 5504:5504/tcp           # dnf-gate-server https（启用TLS后开放）
       - 7001:7001/tcp             # df_channel_r
       - 7001:7001/udp             # df_channel_r
       - 7300:7300/tcp             # df_relay_r

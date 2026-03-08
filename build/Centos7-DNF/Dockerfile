@@ -53,6 +53,23 @@ RUN cd /etc/yum.repos.d/ && rm -rf * && sed -i "s|enabled=1|enabled=0|g" /etc/yu
     yum clean all && \
     rm -rf /tmp/*
 
+# 下载dnf-gate-server
+ARG GATE_VERSION="0.2.1"
+RUN GATE_REPO="llnut/dnf-login" && GATE_TARGET="x86_64-unknown-linux-musl" && \
+    if [ -z "${GATE_VERSION}" ]; then \
+        GATE_VERSION=$(curl -fsSL "https://api.github.com/repos/${GATE_REPO}/releases/latest" | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"\(.*\)".*/\1/'); \
+    fi && \
+    [ -n "$GATE_VERSION" ] || { echo "ERROR: failed to fetch latest dnf-gate-server version" >&2; exit 1; } && \
+    GATE_ASSET="dnf-gate-server-${GATE_VERSION}-${GATE_TARGET}.tar.gz" && \
+    GATE_URL="https://github.com/${GATE_REPO}/releases/download/${GATE_VERSION}/${GATE_ASSET}" && \
+    curl -fsSL -o "/tmp/${GATE_ASSET}" "${GATE_URL}" && \
+    curl -fsSL -o "/tmp/${GATE_ASSET}.sha256" "${GATE_URL}.sha256" && \
+    EXPECTED=$(awk '{print $1}' "/tmp/${GATE_ASSET}.sha256") && \
+    ACTUAL=$(sha256sum "/tmp/${GATE_ASSET}" | awk '{print $1}') && \
+    [ "$EXPECTED" = "$ACTUAL" ] || { echo "ERROR: checksum mismatch for ${GATE_ASSET}" >&2; exit 1; } && \
+    tar -xzf "/tmp/${GATE_ASSET}" --strip-components=1 -C /usr/bin "dnf-gate-server-${GATE_VERSION}-${GATE_TARGET}/dnf-gate-server" && \
+    rm -f "/tmp/${GATE_ASSET}" "/tmp/${GATE_ASSET}.sha256"
+
 # 定义默认环境变量
 
 # 是否连接远程bridge
@@ -90,6 +107,19 @@ ENV NB_MANAGEMENT_URL=''
 # tailscale
 ENV TS_AUTH_KEY=''
 ENV TS_LOGIN_SERVER='https://controlplane.tailscale.com'
+# dnf-gate-server
+ENV DB_USER=game
+ENV DB_NAME=d_taiwan
+ENV GATE_AES_KEY=''
+ENV GATE_BIND_ADDRESS='0.0.0.0:5505'
+ENV GATE_RUST_LOG='info,dnf_gate_server=debug'
+ENV RSA_PRIVATE_KEY_PATH='/data/privatekey.pem'
+ENV INITIAL_CERA=1000
+ENV INITIAL_CERA_POINT=0
+ENV GATE_TLS_CERT_PATH=''
+ENV GATE_TLS_KEY_PATH=''
+ENV GATE_TLS_BIND_ADDRESS='0.0.0.0:5504'
+ENV GATE_TLS_ONLY=false
 
 # 覆盖添加目录
 COPY build/dnf_data/ /
