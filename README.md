@@ -264,6 +264,9 @@ docker restart dnf
 18.游戏内按 Z 键无法释放技能
 * A: 游戏默认关闭了 Z 键位，请打开游戏键位设置重新设置 Z 技能。
 
+19.更换其他登录器后无法连接频道
+* A: 为了提升安全性，本项目没有内置任何公开的游戏公私钥，而是在初次部署时生成全新的公私钥。若您需要使用其他内置了公开私钥的登录器，可以通过[此网盘链接](https://pan.baidu.com/s/1ahR84V3otuy5WYAZD6kvkQ?pwd=sora)下载旧版本公私钥并替换到`/data`目录中，网盘提取码为`sora`。注意，使用公开的公私钥时，一旦泄露了服务端的PUBLIC_IP，攻击者即可在不知道游戏账号密码的前提下随意游玩您服务端任意账号下的任意游戏角色，请务必谨慎。
+
 ---
 
 <a id="vs-1995chen-dep"></a>
@@ -273,9 +276,9 @@ docker restart dnf
 
 | 环境变量 | 默认值 | 说明 |
 |---|---|---|
-| `GATE_AES_KEY` | a1b2c3d4e5f6789012345678901234567890abcdef0123456789abcdef012345 | dnf-gate-server AES 通讯密钥，需与登录器配置一致 |
+| `GATE_AES_KEY` | a1b2c3d4e5f678901234567890123456<br>7890abcdef0123456789abcdef012345 | dnf-gate-server AES 通讯密钥，需与登录器配置一致 |
 | `GATE_BIND_ADDRESS` | `0.0.0.0:5505` | dnf-gate-server HTTP 监听地址 |
-| `RSA_PRIVATE_KEY_PATH` | `/data/privatekey.pem` | RSA 私钥路径，用于解密客户端上传的账号密码 |
+| `RSA_PRIVATE_KEY_PATH` | `/data/privatekey.pem` | RSA 私钥路径 |
 | `INITIAL_CERA` | `1000` | 新账号初始点券 |
 | `INITIAL_CERA_POINT` | `0` | 新账号初始代币券 |
 | `GATE_RUST_LOG` | `info,dnf_gate_server=debug` | dnf-gate-server 日志级别 |
@@ -328,9 +331,9 @@ QQ 7群：971177373
 
 ## 社区
 
-`libhook.so`优化CPU占用源码：[https://godbolt.org/z/EKsYGh5dv](https://godbolt.org/z/EKsYGh5dv)
-`DofSlim`优化服务端内存占用源码：[https://github.com/llnut/DofSlim](https://github.com/llnut/DofSlim)
-`Sorahk`多功能高性能连发程序: [https://github.com/llnut/Sorahk](https://github.com/llnut/Sorahk)
+`libhook.so`优化CPU占用源码：[https://godbolt.org/z/EKsYGh5dv](https://godbolt.org/z/EKsYGh5dv)  
+`DofSlim`优化服务端内存占用源码：[https://github.com/llnut/DofSlim](https://github.com/llnut/DofSlim)  
+`Sorahk`多功能高性能连发程序: [https://github.com/llnut/Sorahk](https://github.com/llnut/Sorahk)  
 `dnf-login`llnut登录器: [https://github.com/llnut/dnf-login](https://github.com/llnut/dnf-login)
 
 ## 申明

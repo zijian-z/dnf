@@ -50,20 +50,19 @@ fi
 
 # 判断privatekey.pem文件是否初始化过
 if [ ! -f "/data/privatekey.pem" ];then
-  # 拷贝版本文件到持久化目录
-  cp /home/template/init/privatekey.pem /data/
-  echo "init privatekey.pem success"
+  # 首次初始化时生成全新的RSA 2048位密钥对
+  openssl genrsa -out /data/privatekey.pem 2048
+  openssl rsa -in /data/privatekey.pem -pubout -out /data/publickey.pem
+  echo "init privatekey.pem and publickey.pem success (newly generated)"
 else
   echo "privatekey.pem have already inited, do nothing!"
-fi
-
-# 判断publickey.pem文件是否初始化过
-if [ ! -f "/data/publickey.pem" ];then
-  # 拷贝版本文件到持久化目录
-  cp /home/template/init/publickey.pem /data/
-  echo "init publickey.pem success"
-else
-  echo "publickey.pem have already inited, do nothing!"
+  # 若私钥已存在但公钥缺失，从私钥派生公钥
+  if [ ! -f "/data/publickey.pem" ];then
+    openssl rsa -in /data/privatekey.pem -pubout -out /data/publickey.pem
+    echo "init publickey.pem success (derived from existing privatekey.pem)"
+  else
+    echo "publickey.pem have already inited, do nothing!"
+  fi
 fi
 
 # 判断DP文件是否初始化过
