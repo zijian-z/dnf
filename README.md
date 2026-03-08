@@ -7,168 +7,188 @@
 
 该项目基于 [1995chen/dnf](https://github.com/1995chen/dnf) 适配 **清风-1031** 版本，将地下城与勇士(毒奶粉、DNF、DOF)整合成一个 Docker 镜像的项目，本项目使用官方 `CentOS-5/6/7`为基础镜像，通过增加环境变量以及初始化脚本实现 应用的快速部署。
 
-## 清风1031适配方式
-### 客户端选择
-请通过[百度网盘链接](https://pan.baidu.com/s/1AuDJ-VO4A9uToAsrg6ETGw?pwd=sora)下载完整清风客户端， 提取码为: `sora`，解压客户端并覆盖网盘中清风最新的更新包中到客户端。登录器可使用 **统一网关在线管理工具** 生成，清风客户端的登录器只能用于本地游戏。
+> **注意**：本项目使用了 [llnut 登录器](https://github.com/llnut/dnf-login)，服务端环境变量和需要开放的端口与 1995chen 的版本有区别，请使用本仓库提供的配置文件进行部署，[详细区别见此](#vs-1995chen-dep)。若仍需要使用统一网关及其配套登录器，请前往镜像仓库拉取带`tongyigate`后缀的镜像，统一网关镜像后续不再维护。
 
-### 服务端部署
-除 [Docker 镜像](https://hub.docker.com/r/llnut/dnf/tags)需替换之外，服务端部署方式与 [1995chen/dnf](https://github.com/1995chen/dnf) 保持一致。
-若您正在进行初次部署，可参考[快速开始](#quick-start)进行部署。
-若您需要从旧版本升级，请务必阅读[此部分内容](#upgrade)。
-
-## 3.0.0 Release Plan 
-```
-1. 支持假人
-2. 通过插件支持几款登录器
-```
-
-## 2025年计划
-
-[支持新的DP插件](https://tieba.baidu.com/p/9366042070?&share=9105&fr=sharewise&is_video=false&unique=B2A11FA6311C7A25903F0C33D1E2FEC1&st=1739609146&client_type=1&client_version=12.75.1.0&sfc=qqfriend&share_from=post)
-
-## 2.1.7 版本升级注意事项(首次部署请忽略)
-
-```
-特别注意：由于2.1.7版本引入多大区功能，我们对原有希洛克大区端口进行过调整。
-
-对于从旧版本升级的镜像，需要调整相应的频道端口号，并配置大区数据库。
-具体来说，需要新增环境变量: SERVER_GROUP_DB=cain
-```
-
-| 2.1.7版本前频道端口 | 变更后频道端口 |
-| ------- | ------- |
-| 10011 | 30011 |
-| 11011 | 31011 |
-| 10052 | 30052 |
-| 11052 | 31052 |
-| 7200 | 7300 |
-
-此外，本次升级镜像需要删除data文件夹下的所有文件夹（PVF、登记补丁、密钥等文件除外）。
-
-<a id="env-prepare"></a>
-## 环境配置
-我们可以根据以下指南，在Linux服务器上进行初始化，并安装所需软件。理论上，这个镜像可以在任何未修改过的Linux操作系统上运行（不包括ARM架构）。
-
-[初始化Linux服务器](doc/PrepareLinux.md)
+---
 
 <a id="quick-start"></a>
 ## 快速开始
 
+> 若您需要从旧版本升级，请先阅读[从旧版本升级](#upgrade)。
+
+### 第一步：准备 Linux 环境
+
+参考以下指南在 Linux 服务器上完成初始化并安装所需软件。理论上本镜像可在任何未修改过的 Linux 操作系统上运行（不包括 ARM 架构）。
+
+[初始化 Linux 服务器](doc/PrepareLinux.md)
+
+### 第二步：启动服务端
+
 ```shell
-# 创建一个目录，保存游戏的数据、PVF、日志等，这里以保存到 /data 为例
-# 2.1.0 及之后的版本，在首次启动时会自动初始化 mysql 数据
+# 创建目录，保存游戏数据、PVF、日志等，这里以 /data 为例
 mkdir -p /data/log /data/mysql /data/data
 
 # 启动服务
-# PUBLIC_IP 为公网IP地址，如果在局域网部署则用局域网IP地址，按实际需要替换
-# GM_ACCOUNT 为登录器用户名，建议替换
-# GM_PASSWORD 为登录器密码，建议替换
-# DNF_DB_ROOT_PASSWORD 为 mysql root 密码，容器启动时会自动将 root 用户的密码修改为此值
-# WEB_USER 为 supervisor web 管理页面用户名
-# WEB_PASS 为 supervisor web 管理页面密码（可以访问 PUBLIC_IP:2000 来访问进程管理页面）
-# CLIENT_POOL_SIZE 为 服务端启动是分配的客户端池大小，若单人使用可设置为3，多人使用请按需求增加，最大可分配1000
-# --shm-size=8g【不可删除】，docker默认为64M较小，需要增加才能保证运行
-# 注意，最后的 llnut/dnf:centos7-qf1031-latest 部分中的 centos7，你在上一步(环境配置)拉取得哪个版本，则应替换为哪个版本
-docker run -d -e PUBLIC_IP=x.x.x.x -e WEB_USER=root -e WEB_PASS=123456 -e DNF_DB_ROOT_PASSWORD=88888888 -e GM_ACCOUNT=gmuser -e GM_PASSWORD=gmpass -e CLIENT_POOL_SIZE=10 -v /data/log:/home/neople/game/log -v /data/mysql:/var/lib/mysql -v /data/data:/data -p 2000:180 -p 3000:3306/tcp -p 7600:7600/tcp -p 881:881/tcp -p 7001:7001/tcp -p 7001:7001/udp -p 30011:30011/tcp -p 31011:31011/udp -p 30052:30052/tcp -p 31052:31052/udp -p 7300:7300/tcp -p 7300:7300/udp -p 2311-2313:2311-2313/udp --cap-add=NET_ADMIN --hostname=dnf --cpus=1 --memory=1g --memory-swap=-1 --shm-size=8g --name=dnf llnut/dnf:centos7-qf1031-latest
+# PUBLIC_IP        公网 IP 地址，局域网部署则填局域网 IP
+# DNF_DB_ROOT_PASSWORD  mysql root 密码，容器启动时会自动将 root 密码修改为此值
+# WEB_USER/WEB_PASS    supervisor 进程管理页面账号密码（访问 PUBLIC_IP:2000）
+# GATE_AES_KEY     dnf-gate-server AES 通讯密钥，需与登录器配置一致，可通过 openssl rand -hex 32 生成
+# CLIENT_POOL_SIZE 启动时分配的客户端池大小，单人可设为 3，多人按需增加，最大 1000
+# --shm-size=8g    【不可删除】docker 默认 64M 太小，必须增大才能保证运行
+# 注意：镜像名中的 centos7 应与上一步拉取的版本一致
+docker run -d \
+  -e PUBLIC_IP=x.x.x.x \
+  -e WEB_USER=root \
+  -e WEB_PASS=123456 \
+  -e DNF_DB_ROOT_PASSWORD=88888888 \
+  -e GATE_AES_KEY=a1b2c3d4e5f6789012345678901234567890abcdef0123456789abcdef012345 \
+  -e CLIENT_POOL_SIZE=10 \
+  -v /data/log:/home/neople/game/log \
+  -v /data/mysql:/var/lib/mysql \
+  -v /data/data:/data \
+  -p 2000:180 \
+  -p 3000:3306/tcp \
+  -p 5505:5505/tcp \
+  -p 7001:7001/tcp \
+  -p 7001:7001/udp \
+  -p 30011:30011/tcp \
+  -p 31011:31011/udp \
+  -p 30052:30052/tcp \
+  -p 31052:31052/udp \
+  -p 7300:7300/tcp \
+  -p 7300:7300/udp \
+  -p 2311-2313:2311-2313/udp \
+  --cap-add=NET_ADMIN \
+  --hostname=dnf \
+  --cpus=1 \
+  --memory=1g \
+  --memory-swap=-1 \
+  --shm-size=8g \
+  --name=dnf \
+  llnut/dnf:centos7-qf1031-latest
 ```
 
-## 如何确认已经成功启动
+### 第三步：确认服务端启动成功
 
-1.查看日志 log  
-- 进入上一步创建的`/data/log`目录
-    ~~~shell
-    ├── siroco11  
-    │ ├── Log20211203-09.history  
-    │ ├── Log20211203.cri  
-    │ ├── Log20211203.debug  
-    │ ├── Log20211203.error  
-    │ ├── Log20211203.init  
-    │ ├── Log20211203.log  
-    │ ├── Log20211203.money  
-    │ └── Log20211203.snap  
-    └── siroco52  
-      ├── Log20211203-09.history  
-      ├── Log20211203.cri  
-      ├── Log20211203.debug  
-      ├── Log20211203.error  
-      ├── Log20211203.init  
-      ├── Log20211203.log  
-      ├── Log20211203.money  
-      └── Log20211203.snap  
-    ~~~
-- 查看Logxxxxxxxx.init文件(其中xxxxxxxx为`当天时间`,需要按实际情况替换),四国的初始化日志(即下述`GeoIP Allow Country Code`日志)都在这里  
-成功出现四国后,日志文件大概如下,四国初始化时间大概1分钟左右,请耐心等待  
-    ~~~shell
-    [root@centos-02 siroco11] tail -f Log$(date +%Y%m%d).init  
-    [09:40:23]    - RestrictBegin : 1  
-    [09:40:23]    - DropRate : 0  
-    [09:40:23]    Security Restrict End  
-    [09:40:23] GeoIP Allow Country Code : CN  
-    [09:40:23] GeoIP Allow Country Code : HK  
-    [09:40:23] GeoIP Allow Country Code : KR  
-    [09:40:23] GeoIP Allow Country Code : MO  
-    [09:40:23] GeoIP Allow Country Code : TW(CN)  
-    [09:40:32] [!] Connect To Guild Server ...  
-    [09:40:32] [!] Connect To Monitor Server ...  
-    ~~~
+**1. 查看日志**
 
-2.查看进程  
-- 在确保日志都正常的情况下,需要查看进程进一步确定程序正常启动  
-    ~~~shell
-    [root@centos-02 siroco11] ps -ef |grep df_game  
-    root 16500 16039 9 20:39 ? 00:01:20 ./df_game_r siroco11 start  
-    root 16502 16039 9 20:39 ? 00:01:22 ./df_game_r siroco52 start  
-    root 22514 13398 0 20:53 pts/0 00:00:00 grep --color=auto df_game 
-    ~~~ 
-    如上结果df_game_r进程是存在的,代表成功.如果不成功可以重启服务  
+进入第二步创建的 `/data/log` 目录，查看 `Logxxxxxxxx.init` 文件（`xxxxxxxx` 为当天日期）：
 
-3.查看进程管理页面
-- 可以通过访问http://PUBLIC_IP:2000端口来访问进程管理页面,可以在
-页面上点击dnf:game_siroco11或dnf:game_siroco52进程的Tail -f来查看日志。
+~~~shell
+├── siroco11
+│ ├── Log20211203-09.history
+│ ├── Log20211203.cri
+│ ├── Log20211203.debug
+│ ├── Log20211203.error
+│ ├── Log20211203.init
+│ ├── Log20211203.log
+│ ├── Log20211203.money
+│ └── Log20211203.snap
+└── siroco52
+  ├── ...
+~~~
 
-## 默认的网关信息
+四国初始化时间约 1 分钟，成功后 `.init` 日志中会出现以下内容：
 
-```shell
-网关端口: 881
-通讯密钥: 763WXRBW3PFTC3IXPFWH
-登录器版本: 20180307
-登录器端口: 7600
-GM账户: gmuser
-GM密码: gmpass
-```
+~~~shell
+[root@centos-02 siroco11] tail -f Log$(date +%Y%m%d).init
+[09:40:23]    - RestrictBegin : 1
+[09:40:23]    - DropRate : 0
+[09:40:23]    Security Restrict End
+[09:40:23] GeoIP Allow Country Code : CN
+[09:40:23] GeoIP Allow Country Code : HK
+[09:40:23] GeoIP Allow Country Code : KR
+[09:40:23] GeoIP Allow Country Code : MO
+[09:40:23] GeoIP Allow Country Code : TW(CN)
+[09:40:32] [!] Connect To Guild Server ...
+[09:40:32] [!] Connect To Monitor Server ...
+~~~
+
+**2. 查看进程**
+
+~~~shell
+[root@centos-02 siroco11] ps -ef |grep df_game
+root 16500 16039 9 20:39 ? 00:01:20 ./df_game_r siroco11 start
+root 16502 16039 9 20:39 ? 00:01:22 ./df_game_r siroco52 start
+~~~
+
+`df_game_r` 进程存在即代表成功。
+
+**3. 查看进程管理页面**
+
+访问 `http://PUBLIC_IP:2000`，在页面上点击 `dnf:game_siroco11` 或 `dnf:game_siroco52` 进程的 `Tail -f` 查看实时日志。
+
+### 第四步：配置客户端
+
+**下载客户端**：[百度网盘](https://pan.baidu.com/s/1AuDJ-VO4A9uToAsrg6ETGw?pwd=sora)，提取码：`sora`
+
+**1. 解压客户端**
+
+下载并解压上述链接中的客户端。
+
+**2. 修改服务端 IP**
+
+打开游戏根目录中的 `mlpz.ini` 文件，将服务器地址修改为第二步中填写的 `PUBLIC_IP` 值，保存文件。
+
+**3. 设置登录器**
+
+- 打开游戏根目录中的 `dnf-launcher.exe`
+- 点击下方的 ***设置*** 按钮，进入设置界面：
+    - **服务器地址**：`http://${PUBLIC_IP}:5505`（启用 HTTPS 则为 `https://${PUBLIC_IP}:5504`）
+    - **AES 密钥**：与第二步中 `GATE_AES_KEY` 的值保持一致
+- 滚动到底部，点击保存
+
+**4. 开始游戏**
+
+点击 ***返回*** 回到登录器首页，创建账号并登录游戏。
+
+> ***注意：如上设置中的参数需与服务端启动时的配置保持一致，如有变动请按实际数据填写***
+
+---
 
 ## 重启服务
 
-该服务占有内存较大，极有可能被系统杀死,当进程被杀死时则需要重启服务  
-重启服务命令
+该服务占用内存较大，可能被系统 OOM 杀死，重启命令：
 
 ```shell
 docker restart dnf
 ```
 
-或在进程管理页面(http://PUBLIC_IP:2000 页面手动重启相关进程)。
+或在进程管理页面（`http://PUBLIC_IP:2000`）手动重启相关进程。
+
+---
 
 <a id="upgrade"></a>
 ## 从旧版本升级
 
-> ⚠️ **重要提示**：如果您是从旧版本升级到包含DofSlim的版本(镜像发布时间2025.10.20)，请务必执行以下操作，否则可能无法降低服务端内存占用。
+> ⚠️ **升级到包含 DofSlim 的版本（镜像发布时间 2025.10.20）**
+>
+> 请先删除 Docker 挂载目录中的以下两个脚本文件（只需删除一次，后续重启不需要再删除），否则可能无法降低服务端内存占用：
+> ```bash
+> /data/run/start_bridge.sh
+> /data/run/start_channel.sh
+> ```
+> 删除后重启服务端即可。
 
-请先删除 Docker 镜像挂载目录中的以下两个脚本文件 (只需删除一次，后续重启不需要再删除)：
+> ⚠️ **升级到替换了 llnut 登录器的版本（镜像发布时间 2026.3.8）**
+>
+> 拉取并重启最新镜像后，需重新下载本仓库提供的最新客户端，并重新完成[第四步：配置客户端](#第四步配置客户端)中的登录器设置。
 
-```bash
-/data/run/start_bridge.sh
-/data/run/start_channel.sh
-```
-之后重启服务端。
+---
+
+## 高级部署
+
+**此部分文档与 [1995chen/dnf](https://github.com/1995chen/dnf) 一致，请手动替换 Docker 镜像为本仓库提供的清风版本**
+
+[点击查看更多部署方式](doc/OtherDeploy.md)
+
+---
 
 ## 常见问题
 
 1.点击网关登录，没反应，不出游戏（请透过Garena+执行）
-* A: windows7需要用管理员权限运行网关，windows10请不要用管理员权限运行网关
 * A: 无法使用虚拟机Console、VNC等访问Windows。
 * A: WIN+R输入dxdiag检查显示-DirectX功能是否全部开启。
-* A: 没有覆盖客户端补丁。
-* A: 统一登陆器5.x版本，需要添加`hosts`[start.dnf.tw]，否则无法进入频道
 
 2.服务端不出五国
 * A: 机器内存不够，swap未配置或配置后未生效，通过free -m查看swap占用内存
@@ -181,37 +201,38 @@ docker restart dnf
 * A: 尝试更换其他镜像
 * A: 部分阉割系统可能不支持--cpus, --memory, --memory-swap, --shm-size尝试去除这些配置
 
-4.生成网关时出现非法字符提示
-* A: 默认用户名密码gm_user,gm_pass中带有下划线"_",与统一6.x版本的网关不兼容，可以尝试使用5.x版本网关或者更换默认网关用户名和密码
+4.设置登录器AES密钥时报错："配置无效: AES key must be exactly 64 hex characters"
+* A: AES密钥长度错误，请仔细检查密钥内容
 
-5.灰频道或频道点击无法进入
+5.设置登录器AES密钥时报错："配置无效: AES key must contain only hex characters (0-9, a-f, A-F)"
+* A: AES密钥格式错误，请仔细检查密钥内容
+
+6.点击登录后报错: "网络错误: error sending request for url ...."
+* A: 设置界面服务器地址设置错误
+* A: 服务端网关启动失败，请检查`/data/data/log/llnut_gate.log`中是否有报错信息
+* A: 防火墙未开放网关端口(http端口默认为5505，https端口默认为5504)
+
+7.灰频道或频道点击无法进入
 * A: 检查Linux服务端防火墙是否关闭
 * A: 检查云服务器厂商相关端口是否放开
 * A: 客户端windows是否配置hosts
 * A: PUBLIC_IP是否填错，windows需要能够访问到这个配置的PUBLIC_IP
-* A: 使用统一补丁需要检查网关生成的登陆器的IP
-* A: 使用Dof7.6补丁需要检查DNF.toml中的IP
+* A: 检查mlpz.ini中的IP是否为服务端PUBLIC_IP
+* A: 若使用Dof7.6补丁需要检查DNF.toml中的IP是否为服务端PUBLIC_IP
 * A: 公钥私钥文件是否匹配
 
-6.点击登录后报错（请重新安装Init）
+8.点击登录后报错（请重新安装Init）
 * A: PVF加密错误，需要重新加密PVF
-* A: 使用Dof7.6补丁，需要恢复成未加密PVF
+* A: 若使用Dof7.6补丁，需要恢复成未加密PVF
 
-7.统一网关无法连接到数据库
-* A: 数据库默认端口3000，用户名使用root，密码默认88888888 ,请确保3000端口在云服务厂商配置里放开
-
-8.接收频道信息失败
+9.接收频道信息失败
 * A: 检查Linux服务端防火墙是否关闭
 * A: 检查云服务器厂商相关端口是否放开
 * A: 五国未成功跑出
+* A: 若使用原版清风2026.2.1的客户端，请更换本项目提供的清风客户端
 
-9.登陆器版本过期,请下载最新登陆器
-* A: 生成登录器，需要和【网关设置】中登录器版本一致
-
-10.正在连接网关，登陆器无法连接网关
-* A: 检查Linux服务端防火墙是否关闭
-* A: 检查云服务器厂商相关端口是否放开
-* A: 五国未成功跑出
+10.如何启用dnf-gate-server的https支持
+* A: 将ssl证书和私钥放置在`/data`目录中，之后设置容器的`GATE_TLS_CERT_PATH`和`GATE_TLS_KEY_PATH`环境变量为正确的证书和私钥路径，重启容器即可
 
 11.新建角色键盘无法输入
 * A: 与客户端有关，部分客户端没优化好会出现这个问题
@@ -243,51 +264,49 @@ docker restart dnf
 18.游戏内按 Z 键无法释放技能
 * A: 游戏默认关闭了 Z 键位，请打开游戏键位设置重新设置 Z 技能。
 
-## 高级部署
-**此部分文档与[1995chen/dnf](https://github.com/1995chen/dnf)一致，请手动替换 Docker 镜像为本仓库提供的清风版本**
+---
 
-[点击查看更多部署方式](doc/OtherDeploy.md)
+<a id="vs-1995chen-dep"></a>
+## 与 1995chen/dnf 的环境变量和端口区别
 
-## 客户端地址下载
-链接：https://pan.baidu.com/s/1AuDJ-VO4A9uToAsrg6ETGw?pwd=sora 
-提取码：sora
+### 新增环境变量（llnut/dnf 特有）
 
-### 统一网关下载
-链接：https://pan.baidu.com/s/1Ea80rBlPQ4tY5P18ikucfw?pwd=bbd0 提取码：bbd0
+| 环境变量 | 默认值 | 说明 |
+|---|---|---|
+| `GATE_AES_KEY` | a1b2c3d4e5f6789012345678901234567890abcdef0123456789abcdef012345 | dnf-gate-server AES 通讯密钥，需与登录器配置一致 |
+| `GATE_BIND_ADDRESS` | `0.0.0.0:5505` | dnf-gate-server HTTP 监听地址 |
+| `RSA_PRIVATE_KEY_PATH` | `/data/privatekey.pem` | RSA 私钥路径，用于解密客户端上传的账号密码 |
+| `INITIAL_CERA` | `1000` | 新账号初始点券 |
+| `INITIAL_CERA_POINT` | `0` | 新账号初始代币券 |
+| `GATE_RUST_LOG` | `info,dnf_gate_server=debug` | dnf-gate-server 日志级别 |
+| `GATE_TLS_CERT_PATH` | 无 | TLS 证书路径，与 `GATE_TLS_KEY_PATH` 同时设置时启用 HTTPS |
+| `GATE_TLS_KEY_PATH` | 无 | TLS 私钥路径 |
+| `GATE_TLS_BIND_ADDRESS` | `0.0.0.0:5504` | dnf-gate-server HTTPS 监听地址 |
+| `GATE_TLS_ONLY` | `false` | 启用后仅允许 HTTPS 连接，拒绝 HTTP 请求 |
+
+### 移除环境变量（1995chen/dnf 特有）
+
+| 环境变量 | 原默认值 | 说明 |
+|---|---|---|
+| `GM_ACCOUNT` | `gmuser` | GM 账号 |
+| `GM_PASSWORD` | `gmpass` | GM 密码 |
+| `GM_CONNECT_KEY` | `763WXRBW3PFTC3IXPFWH` | GM 通讯密钥 |
+| `GM_LANDER_VERSION` | `20180307` | 登录器版本 |
+
+### 端口变化
+
+| 用途 | llnut/dnf | 1995chen/dnf |
+|---|---|---|
+| 登录服务 HTTP | `5505` | `7600`（统一登陆器）、`881`（统一网关） |
+| 登录服务 HTTPS | `5504`（可选，启用 TLS 后开放） | — |
+
+---
 
 ## DNF台服架构图
+
 [点击查看DNF台服架构图](doc/ArchitectureDiagram.md)
 
-### 客户端初始化
-#### 1: 解压上述文件
-下载并解压上述链接中的 客户端、统一网关对应的压缩包进行解压
-
-#### 2: 修改服务端IP地址
-打开游戏根目录中的`mlpz.ini`文件，修改服务器地址为部署服务端时候填写 PUBLIC_IP 的值，并保存文件。
-
-#### 3: 设置统一网关
-- 打开统一网关压缩包解压后的文件夹中的`统一网关在线管理工具v6.4.exe`
-- 点击上方`网关设置`标签页，其中：
-    - **网关地址** 为部署服务端时候填写 PUBLIC_IP 的值
-    - **网关端口** 881 （设置到此处后点击连接，用于验证是否能正常连接上网关）
-    - **登陆账号** gmuser
-    - **登陆密码** gmpass
-    - **通信密钥** 763WXRBW3PFTC3IXPFWH
-    - **登录器端口**  7600
-- 如上设置完成后，点击最下方 `参数设置内容立刻生效` 按钮
-- 如上设置完成后，点击上方 `登陆器设置` 页面
-    - **服务器名称** 可以随意填写
-    - **登陆器版本** 20180307
-    - **线路名称** 可以随意填写
-    - **游戏地址** 为部署服务端时候填写 PUBLIC_IP 的值
-    - **登陆器端口** 7600
-    - **网关地址** 为部署服务端时候填写 PUBLIC_IP 的值 设置完成后一定要点击 `增加` 按钮
-    - **通信密钥** 763WXRBW3PFTC3IXPFWH
-- 最后点击 `生成登陆器` 按钮（可能会有卡顿，请耐心等待）
-
-#### 4: 最后
-- 将第三步生产的登陆器以及`Config.ini`文件，复制到游戏根目录中打开即可进入游戏，登陆游戏记得先去创建账号
-- 注意：如上客户端初始化步骤中的参数为docker部署服务端时填写的默认参数，如有变动，请按照实际数据填写
+---
 
 ## 沟通交流
 
@@ -309,9 +328,10 @@ QQ 7群：971177373
 
 ## 社区
 
-`libhook.so`优化CPU占用源码：[https://godbolt.org/z/EKsYGh5dv](https://godbolt.org/z/EKsYGh5dv)  
-`DofSlim`优化服务端内存占用源码：[https://github.com/llnut/DofSlim](https://github.com/llnut/DofSlim)  
+`libhook.so`优化CPU占用源码：[https://godbolt.org/z/EKsYGh5dv](https://godbolt.org/z/EKsYGh5dv)
+`DofSlim`优化服务端内存占用源码：[https://github.com/llnut/DofSlim](https://github.com/llnut/DofSlim)
 `Sorahk`多功能高性能连发程序: [https://github.com/llnut/Sorahk](https://github.com/llnut/Sorahk)
+`dnf-login`llnut登录器: [https://github.com/llnut/dnf-login](https://github.com/llnut/dnf-login)
 
 ## 申明
 ```
@@ -322,7 +342,7 @@ QQ 7群：971177373
 
 ## 🤝 特别感谢
 
-特别感谢清风和原作者 1995chen 以及 QQ 5群各位热心人士对本项目的支持。以下是 1995chen 的话，也是我想说的话：
+特别感谢清风和原作者 1995chen 以及 QQ 交流群各位热心人士对本项目的支持。以下是 1995chen 的话，也是我想说的话：
 
 作为一位开源库的作者，我要衷心感谢所有支持和贡献给我项目的人。您的热情参与和无私奉献让这个项目变得更加强大和有意义。没有您的支持，这个项目将无法取得如此巨大的成功。
 
@@ -331,5 +351,3 @@ QQ 7群：971177373
 在未来的道路上，我将继续努力改进和完善这个项目，以回报您的支持与信任。希望我们能够继续保持联系，共同见证这个项目的成长与发展。
 
 再次感谢您的支持与帮助！
-
-
