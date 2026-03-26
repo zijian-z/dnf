@@ -54,7 +54,7 @@ RUN cd /etc/yum.repos.d/ && rm -rf * && sed -i "s|enabled=1|enabled=0|g" /etc/yu
     rm -rf /tmp/*
 
 # 下载dnf-gate-server
-ARG GATE_VERSION="0.2.1"
+ARG GATE_VERSION="0.3.0"
 RUN GATE_REPO="llnut/dnf-login" && GATE_TARGET="x86_64-unknown-linux-musl" && \
     if [ -z "${GATE_VERSION}" ]; then \
         GATE_VERSION=$(curl -fsSL "https://api.github.com/repos/${GATE_REPO}/releases/latest" | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"\(.*\)".*/\1/'); \
@@ -120,6 +120,7 @@ ENV GATE_TLS_CERT_PATH=''
 ENV GATE_TLS_KEY_PATH=''
 ENV GATE_TLS_BIND_ADDRESS='0.0.0.0:5504'
 ENV GATE_TLS_ONLY=false
+ENV GAME_SERVER_IP=''
 
 # 覆盖添加目录
 COPY build/dnf_data/ /

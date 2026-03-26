@@ -39,6 +39,8 @@ export DDNS_INTERVAL=$(echo $DDNS_INTERVAL | sed "s/[\'\"]//g")
 export NB_SETUP_KEY=$(echo $NB_SETUP_KEY | sed "s/[\'\"]//g")
 export NB_MANAGEMENT_URL=$(echo $NB_MANAGEMENT_URL | sed "s/[\'\"]//g")
 export CLIENT_POOL_SIZE="$(echo "${CLIENT_POOL_SIZE:-10}" | sed "s/[\'\"]//g")"
+export DB_USER=$(echo $DB_USER | sed "s/[\'\"]//g")
+export DB_NAME=$(echo $DB_NAME | sed "s/[\'\"]//g")
 export GATE_AES_KEY=$(echo $GATE_AES_KEY | sed "s/[\'\"]//g")
 export GATE_BIND_ADDRESS=$(echo $GATE_BIND_ADDRESS | sed "s/[\'\"]//g")
 export GATE_RUST_LOG=$(echo $GATE_RUST_LOG | sed "s/[\'\"]//g")
@@ -49,6 +51,7 @@ export GATE_TLS_CERT_PATH=$(echo $GATE_TLS_CERT_PATH | sed "s/[\'\"]//g")
 export GATE_TLS_KEY_PATH=$(echo $GATE_TLS_KEY_PATH | sed "s/[\'\"]//g")
 export GATE_TLS_BIND_ADDRESS=$(echo $GATE_TLS_BIND_ADDRESS | sed "s/[\'\"]//g")
 export GATE_TLS_ONLY=$(echo $GATE_TLS_ONLY | sed "s/[\'\"]//g")
+export GAME_SERVER_IP=$(echo $GAME_SERVER_IP | sed "s/[\'\"]//g")
 # 校验用户选择的大区
 SERVER_GROUP_NAME_VAR="SERVER_GROUP_NAME_$SERVER_GROUP"
 if [ "$SERVER_GROUP" -ge 1 ] && [ "$SERVER_GROUP" -le 6 ]; then
@@ -204,7 +207,7 @@ sed -i "s/^password=.*/password=$WEB_PASS/" /etc/supervisord.conf
 SUPERVISORD_ENV="MAIN_BRIDGE_IP=\"$MAIN_BRIDGE_IP\",SERVER_GROUP_NAME=\"$SERVER_GROUP_NAME\",SERVER_GROUP_DB=\"$SERVER_GROUP_DB\",CUR_MAIN_DB_HOST=\"$CUR_MAIN_DB_HOST\",CUR_MAIN_DB_PORT=\"$CUR_MAIN_DB_PORT\",CUR_SG_DB_HOST=\"$CUR_SG_DB_HOST\",CUR_SG_DB_PORT=\"$CUR_SG_DB_PORT\""
 sed -i "s/^environment=.*/environment=$SUPERVISORD_ENV/" /etc/supervisord.conf
 # 传递dnf-gate-server环境变量
-GATE_ENV="DB_HOST=\"$CUR_MAIN_DB_HOST\",DB_PORT=\"$CUR_MAIN_DB_PORT\",DB_USER=\"$DB_USER\",DB_PASSWORD=\"$DNF_DB_GAME_PASSWORD\",DB_NAME=\"$DB_NAME\",AES_KEY=\"$GATE_AES_KEY\",RSA_PRIVATE_KEY_PATH=\"$RSA_PRIVATE_KEY_PATH\",BIND_ADDRESS=\"$GATE_BIND_ADDRESS\",INITIAL_CERA=\"$INITIAL_CERA\",INITIAL_CERA_POINT=\"$INITIAL_CERA_POINT\",TLS_BIND_ADDRESS=\"$GATE_TLS_BIND_ADDRESS\",TLS_ONLY=\"$GATE_TLS_ONLY\",RUST_LOG=\"$GATE_RUST_LOG\""
+GATE_ENV="GAME_SERVER_IP=\"${GAME_SERVER_IP:-$PUBLIC_IP}\",DB_HOST=\"$CUR_MAIN_DB_HOST\",DB_PORT=\"$CUR_MAIN_DB_PORT\",DB_USER=\"$DB_USER\",DB_PASSWORD=\"$DNF_DB_GAME_PASSWORD\",DB_NAME=\"$DB_NAME\",AES_KEY=\"$GATE_AES_KEY\",RSA_PRIVATE_KEY_PATH=\"$RSA_PRIVATE_KEY_PATH\",BIND_ADDRESS=\"$GATE_BIND_ADDRESS\",INITIAL_CERA=\"$INITIAL_CERA\",INITIAL_CERA_POINT=\"$INITIAL_CERA_POINT\",TLS_BIND_ADDRESS=\"$GATE_TLS_BIND_ADDRESS\",TLS_ONLY=\"$GATE_TLS_ONLY\",RUST_LOG=\"$GATE_RUST_LOG\""
 [ -n "$GATE_TLS_CERT_PATH" ] && GATE_ENV+=",TLS_CERT_PATH=\"$GATE_TLS_CERT_PATH\""
 [ -n "$GATE_TLS_KEY_PATH" ] && GATE_ENV+=",TLS_KEY_PATH=\"$GATE_TLS_KEY_PATH\""
 # 转义supervisord Python格式字符串中的%，以及sed replacement中的&和\
