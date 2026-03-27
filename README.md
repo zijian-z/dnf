@@ -358,7 +358,7 @@ QQ 7群：971177373
 `libhook.so`优化CPU占用源码：[https://godbolt.org/z/EKsYGh5dv](https://godbolt.org/z/EKsYGh5dv)  
 `DofSlim`优化服务端内存占用源码：[https://github.com/llnut/DofSlim](https://github.com/llnut/DofSlim)  
 `Sorahk`多功能高性能连发程序: [https://github.com/llnut/Sorahk](https://github.com/llnut/Sorahk)  
-`dnf-login`llnut登录器: [https://github.com/llnut/dnf-login](https://github.com/llnut/dnf-login)
+`dnf-login`llnut登录器: [https://github.com/llnut/dnf-login](https://github.com/llnut/dnf-login)  
 `dnf-compat-layer`新版linux镜像兼容层: [https://github.com/llnut/dnf-compat-layer](https://github.com/llnut/dnf-compat-layer)
 
 ## 申明
