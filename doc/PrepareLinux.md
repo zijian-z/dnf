@@ -81,10 +81,10 @@ sysctl -p
 
 最新可用的镜像版本如下所示:
 ```shell
-llnut/dnf:centos7-qf1031-latest
+llnut/dnf:debian13-qf1031-latest
 ```
 
 您可使用如下命令拉取镜像，例如：
 ```shell
-docker pull llnut/dnf:centos7-qf1031-latest
+docker pull llnut/dnf:debian13-qf1031-latest
 ```

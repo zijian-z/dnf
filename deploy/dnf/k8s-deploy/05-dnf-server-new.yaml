@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: dnf-server-new
-          image: llnut/dnf:centos7-qf1031-latest
+          image: llnut/dnf:debian13-qf1031-latest
           resources:
             requests:
               memory: "8Gi"

@@ -39,7 +39,7 @@ services:
       restart: always
 
   dnf-cain:
-    image: llnut/dnf:centos7-qf1031-latest
+    image: llnut/dnf:debian13-qf1031-latest
     environment:
       - TZ=Asia/Shanghai
       - SERVER_GROUP=1
@@ -86,7 +86,7 @@ services:
       - ./log_1:/home/neople/game/log
 
   dnf-diregie:
-    image: llnut/dnf:centos7-qf1031-latest
+    image: llnut/dnf:debian13-qf1031-latest
     environment:
       - TZ=Asia/Shanghai
       - SERVER_GROUP=2
@@ -127,7 +127,7 @@ services:
       - ./log_2:/home/neople/game/log
 
   dnf-siroco:
-    image: llnut/dnf:centos7-qf1031-latest
+    image: llnut/dnf:debian13-qf1031-latest
     environment:
       - TZ=Asia/Shanghai
       - SERVER_GROUP=3

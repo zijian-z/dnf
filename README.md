@@ -5,7 +5,7 @@
 
 ## 概述
 
-该项目基于 [1995chen/dnf](https://github.com/1995chen/dnf) 适配 **清风-1031** 版本，将地下城与勇士(毒奶粉、DNF、DOF)整合成一个 Docker 镜像的项目，本项目使用官方 `CentOS-5/6/7`为基础镜像，通过增加环境变量以及初始化脚本实现 应用的快速部署。
+该项目基于 [1995chen/dnf](https://github.com/1995chen/dnf) 适配 **清风-1031** 版本，将地下城与勇士(毒奶粉、DNF、DOF)整合成一个 Docker 镜像的项目，本项目使用 `Debian 13` 为基础镜像（同时保留 `CentOS-7` 的历史镜像），通过增加环境变量以及初始化脚本实现应用的快速部署。
 
 > **注意**：本项目使用 [llnut 登录器](https://github.com/llnut/dnf-login)，服务端环境变量和需要开放的端口与 1995chen 的版本有区别，请使用本仓库提供的配置文件进行部署，[详细区别见此](#vs-1995chen-dep)。若仍需要使用统一网关及其配套登录器，请前往镜像仓库拉取带`tongyigate`后缀的镜像，统一网关镜像后续不再维护。
 
@@ -35,7 +35,7 @@ mkdir -p /data/log /data/mysql /data/data
 # GATE_AES_KEY     dnf-gate-server AES 通讯密钥，需与登录器配置一致，可通过 openssl rand -hex 32 生成
 # CLIENT_POOL_SIZE 启动时分配的客户端池大小，单人可设为 3，多人按需增加，最大 1000
 # --shm-size=8g    【不可删除】docker 默认 64M 太小，必须增大才能保证运行
-# 注意：镜像名中的 centos7 应与上一步拉取的版本一致
+# 注意：镜像名中的 debian13 应与上一步拉取的版本一致
 docker run -d \
   -e PUBLIC_IP=x.x.x.x \
   -e WEB_USER=root \
@@ -65,7 +65,7 @@ docker run -d \
   --memory-swap=-1 \
   --shm-size=8g \
   --name=dnf \
-  llnut/dnf:centos7-qf1031-latest
+  llnut/dnf:debian13-qf1031-latest
 ```
 
 ### 第三步：确认服务端启动成功
@@ -177,6 +177,23 @@ docker restart dnf
 > - 下载 `20260308-to-20260326-升级补丁.7z`，解压并覆盖到 20260308 版本的客户端目录中
 >
 > 新版客户端不再需要手动配置 `mlpz.ini`，游戏服务器 IP 由登录器自动从服务端获取。
+
+> **从 Centos7 切换到 Debian 13 镜像（镜像发布时间 2026.3.27）**
+>
+> **CentOS 7 与 Debian 13 的镜像互不兼容，不能共用已有数据。** 从 CentOS 7 镜像切换到 Debian 13 镜像前，必须完成以下操作：
+>
+> 1. 停止并删除正在运行的旧容器
+> 2. **完全清除** Docker 挂载目录中的所有数据（包括 `/data`、`/var/lib/mysql`、`/home/neople/game/log` 对应的本地目录）
+> 3. 拉取新镜像后重新启动服务端
+>
+> ```bash
+> # 示例：清理数据（请根据实际挂载路径调整）
+> docker stop dnf && docker rm dnf
+> rm -rf /data/log/* /data/mysql/* /data/data/*
+> docker pull llnut/dnf:debian13-qf1031-latest
+> ```
+>
+> **请务必提前备份重要数据。此操作不可逆，清除后原有的账号、角色等数据将无法恢复。若不想清理数据，也可使用数据库备份工具备份完整的旧库数据，之后导入到 Debian13 的新库。**
 
 ---
 
@@ -342,6 +359,7 @@ QQ 7群：971177373
 `DofSlim`优化服务端内存占用源码：[https://github.com/llnut/DofSlim](https://github.com/llnut/DofSlim)  
 `Sorahk`多功能高性能连发程序: [https://github.com/llnut/Sorahk](https://github.com/llnut/Sorahk)  
 `dnf-login`llnut登录器: [https://github.com/llnut/dnf-login](https://github.com/llnut/dnf-login)
+`dnf-compat-layer`新版linux镜像兼容层: [https://github.com/llnut/dnf-compat-layer](https://github.com/llnut/dnf-compat-layer)
 
 ## 申明
 ```
