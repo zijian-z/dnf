@@ -100,7 +100,8 @@ RUN for bin in mysql mysqld_safe mysqladmin mysqldump my_print_defaults; do \
     && printf '#!/bin/bash\nmkdir -p /var/lib/mysql /var/run/mysqld /var/log/mysql\nchown -R mysql:mysql /var/lib/mysql /var/run/mysqld /var/log/mysql\nchmod 750 /var/lib/mysql /var/run/mysqld\nrm -rf /var/lib/mysql/*\n/usr/local/mysql/bin/mysqld --defaults-file=/etc/my.cnf --initialize-insecure --user=mysql --basedir=/usr/local/mysql --datadir=/var/lib/mysql --explicit_defaults_for_timestamp\n' > /usr/bin/mysql_install_db \
     && chmod +x /usr/bin/mysql_install_db
 
-# Install additional i386 shared libraries
+# Install additional i386 shared libraries and download dnf-gate-server
+ARG GATE_VERSION="0.3.0"
 RUN apt-get update && apt-get install -y --no-install-recommends wget ca-certificates \
     && cd /tmp \
     && wget -q https://raw.githubusercontent.com/1995chen/dnf_util/refs/heads/main/common_pkgs/lib.tgz \
@@ -108,13 +109,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends wget ca-certifi
     && rm -f /tmp/libGeoIP* \
     && mv /tmp/*.so /lib/i386-linux-gnu/ 2>/dev/null || true \
     && mv /tmp/*.so.1 /lib/i386-linux-gnu/ 2>/dev/null || true \
-    && apt-get purge -y wget \
-    && apt-get autoremove -y \
-    && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/*
-
-# Download dnf-gate-server
-ARG GATE_VERSION="0.3.0"
-RUN apt-get update && apt-get install -y --no-install-recommends wget ca-certificates \
+    && rm -rf /tmp/* \
     && GATE_REPO="llnut/dnf-login" && GATE_TARGET="x86_64-unknown-linux-musl" && \
     if [ -z "${GATE_VERSION}" ]; then \
         GATE_VERSION=$(wget -qO- "https://api.github.com/repos/${GATE_REPO}/releases/latest" | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"\(.*\)".*/\1/'); \
