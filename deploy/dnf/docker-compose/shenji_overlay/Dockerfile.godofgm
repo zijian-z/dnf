@@ -1,5 +1,12 @@
-FROM scratch
+FROM alpine:3.21
 
 WORKDIR /opt/godofgm
 
-ENTRYPOINT ["/opt/godofgm/godofgm", "-x", "-p", "/opt/godofgm/config/server.json"]
+COPY gm/dist/ /opt/godofgm-init/
+COPY gm-start.sh /usr/local/bin/gm-start.sh
+
+RUN mkdir -p /opt/godofgm /opt/godofgm-init \
+    && cp -a /opt/godofgm-init/. /opt/godofgm/ \
+    && chmod +x /usr/local/bin/gm-start.sh /opt/godofgm/godofgm
+
+ENTRYPOINT ["/usr/local/bin/gm-start.sh"]

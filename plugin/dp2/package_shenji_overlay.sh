@@ -16,8 +16,8 @@ usage() {
   1. 默认从 deploy/dnf/docker-compose/shenji_overlay 打包
   2. 默认输出到 .artifacts/
   3. Script.pvf 和 gm/dist/data/data.db 都是可选文件
-     - Script.pvf 缺失时，运行时继续走 EXTERNAL_PVF_PATH 外部挂载
-     - data.db 缺失时，GM 镜像只打包空 data 目录，首次启动由应用或外部卷接管
+     - Script.pvf 缺失时，部署时需要自行准备 ./data/Script.pvf
+     - data.db 缺失时，GM 镜像只打包空 data 目录，部署时需要自行准备 ./data/godofgm/data.db
 EOF
 }
 
@@ -125,8 +125,8 @@ included_script_pvf=$include_pvf
 included_gm_data_db=$include_gm_db
 
 Notes:
-- included_script_pvf=no 时，运行时请继续通过 EXTERNAL_PVF_PATH 或 shenji_overlay_pvf 外部卷提供 Script.pvf
-- included_gm_data_db=no 时，GM 镜像只包含空 data 目录；如需沿用现有账号/权限/日志，请额外挂载或单独分发 data.db
+- included_script_pvf=no 时，部署时请手工准备 ./data/Script.pvf
+- included_gm_data_db=no 时，部署时请手工准备 ./data/godofgm/data.db
 EOF
 
   (

@@ -37,7 +37,6 @@ services:
       - ./data:/data
       - ./mysql:/var/lib/mysql
       - ./log:/home/neople/game/log
-      - shenji_overlay_pvf:/data/pvf_external:ro
 
   godofgm:
     image: ${GM_IMAGE:?set GM_IMAGE in .env.release}
@@ -46,9 +45,5 @@ services:
       - dnf-1
     restart: always
     volumes:
-      - ./gm-data:/opt/godofgm/data
-      - ./gm-log:/opt/godofgm/log
-
-volumes:
-  shenji_overlay_pvf:
-    external: true
+      - ./data/godofgm:/opt/godofgm/data
+      - ./log/godofgm:/opt/godofgm/log

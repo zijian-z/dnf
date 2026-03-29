@@ -15,17 +15,19 @@ copy_tree() {
   [[ -d "$src" ]] || return 0
 
   mkdir -p "$dst"
-  cp -a "$src"/. "$dst"/
+  cp -an "$src"/. "$dst"/
 }
 
-install_file_if_present() {
+install_file_if_missing() {
   local src="$1"
   local dst="$2"
   local mode="$3"
 
   [[ -f "$src" ]] || return 0
 
-  install -D -m "$mode" "$src" "$dst"
+  if [[ ! -e "$dst" ]]; then
+    install -D -m "$mode" "$src" "$dst"
+  fi
 }
 
 main() {
@@ -38,16 +40,16 @@ main() {
     exit 0
   fi
 
-  log "sync overlay assets from $overlay_root"
+  log "init missing overlay assets from $overlay_root"
 
   copy_tree "$overlay_root/data/dp" /data/dp
   copy_tree "$overlay_root/data/game" /data/game
   copy_tree "$overlay_root/data/channel" /data/channel
   copy_tree "$overlay_root/data/run" /data/run
 
-  install_file_if_present "$overlay_root/data/libfd.so" /data/libfd.so 0755
-  install_file_if_present "$overlay_root/data/Script.pvf" /data/Script.pvf 0644
-  install_file_if_present "$overlay_root/optional/df_game_r.shenji" /data/optional/df_game_r.shenji 0755
+  install_file_if_missing "$overlay_root/data/libfd.so" /data/libfd.so 0755
+  install_file_if_missing "$overlay_root/data/Script.pvf" /data/Script.pvf 0644
+  install_file_if_missing "$overlay_root/optional/df_game_r.shenji" /data/optional/df_game_r.shenji 0755
 
   if [[ -d "$overlay_root/meta" ]]; then
     copy_tree "$overlay_root/meta" /data/shenji_overlay_meta

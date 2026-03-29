@@ -60,7 +60,7 @@ plugin/dp2/sync_from_vmdk.sh /path/to/DNFServer.vmdk
 - `libfd.so` 和 `start_game.sh` 是从神迹 `run` 语义里抽出来的必要部分
 - `channel_amd64`、双份 `channel_info` 和 `start_channel.sh` 也是必要运行时
 - `Script.pvf` 会在本地同步出来做校验，但 `.gitignore` 已忽略该文件，不建议提交到 GitHub
-- GitHub 部署时请把 `Script.pvf` 单独上传到外部 Docker volume `shenji_overlay_pvf`
+- GitHub 或本地部署时，`Script.pvf` 都应按清风风格直接放到 `./data/Script.pvf`
 - 不是只替换 `PVF + dp2` 就结束
 
 如果要把这套覆盖层直接做成可发布镜像:

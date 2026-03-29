@@ -109,23 +109,26 @@ deploy/dnf/docker-compose/shenji_overlay
 
 其中有一点需要单独处理:
 
-- `data/Script.pvf` 只建议本地保留做 diff 和校验
+- `data/Script.pvf` 就是清风风格的外部持久化文件
 - 该文件已经被 `.gitignore` 忽略，不建议提交到 GitHub
-- 真正部署时，应把 `Script.pvf` 上传到外部 Docker volume `shenji_overlay_pvf`
+- 本地 build 和 GitHub 发布版都统一按 `./data/Script.pvf` 管理
 
 ### 2. 启动清风容器
 
-先准备外部 PVF 卷:
+先准备清风风格的外部目录:
 
 ```bash
-docker volume create shenji_overlay_pvf
-docker run --rm \
-  -v shenji_overlay_pvf:/pvf \
-  -v /绝对路径/Script.pvf:/tmp/Script.pvf:ro \
-  alpine sh -c 'cp /tmp/Script.pvf /pvf/Script.pvf'
+cd deploy/dnf/docker-compose/shenji_overlay
+mkdir -p data data/godofgm mysql log log/godofgm
 ```
 
-容器启动时会自动检查 `/data/pvf_external/Script.pvf`，并同步到容器内部实际使用的 `/data/Script.pvf`。
+如果本次覆盖层目录内已经有 `data/Script.pvf`，可以直接使用。
+
+如果你手头另有一份要替换的 PVF，则直接覆盖到:
+
+```bash
+cp /绝对路径/Script.pvf ./data/Script.pvf
+```
 
 ```bash
 cd deploy/dnf/docker-compose/shenji_overlay
@@ -141,6 +144,10 @@ sudo docker compose up -d --build
 
 - `dnf-1` 通过本地 `build/Debian13-DNF/Dockerfile` 构建
 - `godofgm` 通过本地 `Dockerfile.godofgm` 构建
+- `godofgm` 现已改成和发布版一致的外部持久化方式:
+  - 镜像内自带默认 `data.db`
+  - 首启缺失时自动播种到 `./data/godofgm/data.db`
+  - 后续网页 GM 的修改始终落在外部 `./data/godofgm/data.db`
 
 ### 2.1 打包成镜像并通过 GitHub 发布
 
@@ -179,15 +186,22 @@ GitHub Actions 工作流位于:
 
 需要特别注意:
 
-- `Script.pvf` 仍然优先建议走外部卷 `shenji_overlay_pvf`
-- 仓库现有的 `EXTERNAL_PVF_PATH=/data/pvf_external/Script.pvf` 同步逻辑会继续生效
-- 即便镜像内打进了 `Script.pvf`，外部卷中的新文件仍会在启动时覆盖镜像内默认值
-- `gm/dist/data/data.db` 含有网页 GM 的 SQLite 状态数据，不建议默认作为公共发布资产长期固化；若需要保留现有账号和权限，请单独挂载 `./gm-data:/opt/godofgm/data`
+- 发布版部署应继续参考清风原有的外部 `data` 目录思路
+- 镜像内置的神迹覆盖层文件只在缺失时初始化到 `./data`，不会覆盖已存在的外部文件
+- `Script.pvf` 建议直接放到外部 `./data/Script.pvf`
+- `gm/dist/data/data.db` 建议作为默认种子随镜像发布，首启自动初始化到外部 `./data/godofgm/data.db`
+- 后续网页 GM 的状态变更始终落在外部 `./data/godofgm/data.db`
+- 若希望 GitHub 发布版默认带上 `data.db`，需确保 `deploy/dnf/docker-compose/shenji_overlay/gm/dist/data/data.db` 已提交到仓库
 
 若要直接消费 GitHub 发布的镜像，可使用:
 
 - `deploy/dnf/docker-compose/shenji_overlay/docker-compose.release.yaml`
 - `doc/DeployGitHubRelease.md`
+
+其中 `doc/DeployGitHubRelease.md` 额外说明了:
+
+- 发布版部署继续如何遵循清风外部 `data` 目录模式
+- GitHub 发布镜像相对于清风基础镜像到底替换了哪些部分
 
 网页 GM 默认通过主服务映射到:
 
@@ -201,7 +215,7 @@ http://<PUBLIC_IP>:8088
 
 但默认已经启用了神迹 `run` 语义提取版 `data/run/start_game.sh`:
 
-- `Script.pvf` 若存在于外部卷 `shenji_overlay_pvf`，启动时会先自动同步到 `/data/Script.pvf`
+- `Script.pvf` 直接使用外部 `./data/Script.pvf`
 - 如果存在 `data/libfd.so`，启动时会复制到 `/home/neople/game/libfd.so`
 - 游戏进程会按神迹原始思路挂载 `libhook.so + libfd.so`
 - 如果存在 `data/game/channel_info/*`，启动前会覆盖到 `/home/neople/game/channel_info`
@@ -248,7 +262,7 @@ IP 配置额外注意:
 
 1. 更新仓库
 2. 重新执行 `plugin/dp2/sync_from_vmdk.sh`
-3. 如有需要，重新上传最新 `Script.pvf` 到 `shenji_overlay_pvf`
+3. 如有需要，直接替换 `deploy/dnf/docker-compose/shenji_overlay/data/Script.pvf`
 4. 在 `deploy/dnf/docker-compose/shenji_overlay` 下执行 `sudo docker compose up -d --build`
 
 当 VMDK 更新时:
@@ -256,14 +270,14 @@ IP 配置额外注意:
 1. 替换新的 `VMDK`
 2. 重新执行 `plugin/dp2/sync_from_vmdk.sh`
 3. 检查 `meta/checksums.txt`
-4. 将新的 `Script.pvf` 上传到 `shenji_overlay_pvf`
+4. 如有需要，替换 `deploy/dnf/docker-compose/shenji_overlay/data/Script.pvf`
 5. 在 `deploy/dnf/docker-compose/shenji_overlay` 下执行 `sudo docker compose up -d --build`
 
 ## 当前已确认的差异结论
 
 - 神迹 `Script.pvf` 与清风默认 `Script.pvf` 完全不同，而且体积明显更大
-- 因为 `Script.pvf` 体积过大，不适合直接放进 GitHub 仓库，部署时应改走外部 Docker volume
-- 仓库里额外加入的 `EXTERNAL_PVF_PATH` 处理只是为了让外部卷覆盖 `/data/Script.pvf`，并不改变清风原本的数据库初始化流程
+- 因为 `Script.pvf` 体积过大，不适合直接放进 GitHub 仓库，所以发布版是否内置它，要以 `shenji-overlay-summary.txt` 为准
+- 无论是本地 build 还是 GitHub 发布版，运行时都统一按清风风格把 PVF 放在 `./data/Script.pvf`
 - 神迹 `dp2` 与仓库自带 `plugin/dp2/dp2.tgz` 的二进制主体基本一致
 - 最新神迹新生额外自带网页 GM，运行目录在 `root/dist`
 - VMDK 中存在 `libfd.so` 的二进制成品 `home/neople/game/libfd.so`
@@ -280,6 +294,25 @@ IP 配置额外注意:
   - `libdp2pre.so` 对应清风侧的 `libhook.so`
 
 这意味着“玩法覆盖层”的主战场是 `PVF + DP 脚本 + libfd preload 语义 + channel_amd64/channel_info`，而不是整机环境。
+
+## 数据库比对结论
+
+当前已经对 VMDK 与清风初始化逻辑做过一轮实际比对，结论如下:
+
+- 网页 GM 的 `root/dist/data/data.db` 与仓库内 `deploy/dnf/docker-compose/shenji_overlay/gm/dist/data/data.db` 当前是**字节级完全一致**
+- VMDK 里的网页 GM 配置 `root/dist/config/server.json` 与仓库内 `gm/dist/config/server.json` 当前也是一致的
+- VMDK 主业务服实际使用的 MySQL 账号密码仍然是 `game / uu5!^%jg`
+- VMDK 游戏进程启动日志显示，实际连接的是 `d_taiwan`、`d_taiwan_secu`、`taiwan_cain`、`taiwan_cain_2nd`、`taiwan_cain_log`、`taiwan_login`、`taiwan_prod`、`taiwan_game_event`、`taiwan_se_event`、`taiwan_billing`、`taiwan_cain_auction_gold` 这一组库
+- 这组库与清风 `init_main_db.sh + init_server_group_db.sh` 当前初始化并重写 `db_connect` 的目标集合是一致的
+
+同时也确认了几个差异点:
+
+- VMDK 的 MySQL 数据目录里额外有一个 `frida` 库
+- 这个 `frida` 库不是靠初始化 SQL 预置的，而是神迹 DP 在运行时通过 `create database if not exists frida` 自动创建
+- VMDK 的 MySQL 数据目录里也存在 `taiwan_siroco`
+- 但从神迹实际配置和运行日志看，当前业务服并不是直接把 `taiwan_siroco` 当作主业务库在用，`siroco` 更像服务组/频道命名
+
+所以当前迁移策略里“主 MySQL 初始化继续沿用清风”是成立的，不需要额外把 VMDK 的 `/opt/lampp/var/mysql` 整包搬进 Docker。
 
 ## 关于源码
 

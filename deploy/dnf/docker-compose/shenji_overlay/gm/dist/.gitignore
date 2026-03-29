@@ -16,5 +16,7 @@
 *.vsix
 .idea
 
-data
+data/*
+!data/
+!data/data.db
 log

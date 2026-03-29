@@ -43,7 +43,6 @@ services:
       - ./data:/data
       - ./mysql:/var/lib/mysql
       - ./log:/home/neople/game/log
-      - shenji_overlay_pvf:/data/pvf_external:ro
 
   godofgm:
     build:
@@ -55,9 +54,5 @@ services:
       - dnf-1
     restart: always
     volumes:
-      - ./gm/dist:/opt/godofgm
-    working_dir: /opt/godofgm
-
-volumes:
-  shenji_overlay_pvf:
-    external: true
+      - ./data/godofgm:/opt/godofgm/data
+      - ./log/godofgm:/opt/godofgm/log
