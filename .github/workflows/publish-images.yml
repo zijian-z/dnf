@@ -103,6 +103,7 @@ jobs:
           name: shenji-overlay-assets-${{ steps.meta.outputs.version }}
           path: .artifacts/
           if-no-files-found: error
+          include-hidden-files: true
 
       - name: Build Shenji Overlay DNF Image
         shell: bash
