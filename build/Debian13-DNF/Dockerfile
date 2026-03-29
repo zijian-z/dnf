@@ -1,14 +1,10 @@
 # Build dependencies: GeoIP data, MySQL 5.7, and dnf-compat-layer
-ARG DEBIAN_BASE_IMAGE=docker.1ms.run/debian:stable-slim
+ARG DEBIAN_BASE_IMAGE=debian:stable-slim
 FROM ${DEBIAN_BASE_IMAGE} AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN if [ -f /etc/apt/sources.list.d/debian.sources ]; then \
-      sed -i 's|https\?://deb.debian.org/debian|http://mirrors.tuna.tsinghua.edu.cn/debian|g' /etc/apt/sources.list.d/debian.sources && \
-      sed -i 's|https\?://deb.debian.org/debian-security|http://mirrors.tuna.tsinghua.edu.cn/debian-security|g' /etc/apt/sources.list.d/debian.sources; \
-    fi \
-    && apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     wget ca-certificates curl gcc-multilib git \
     && rm -rf /var/lib/apt/lists/*
 
@@ -43,7 +39,7 @@ ARG DNF_COMPAT_LAYER_VERSION="0.1.0"
 RUN git clone --branch ${DNF_COMPAT_LAYER_VERSION} --depth 1 https://github.com/llnut/dnf-compat-layer.git /src \
     && cd /src && cargo build --workspace --release --target i686-unknown-linux-gnu
 
-ARG DEBIAN_BASE_IMAGE=docker.1ms.run/debian:stable-slim
+ARG DEBIAN_BASE_IMAGE=debian:stable-slim
 FROM ${DEBIAN_BASE_IMAGE}
 
 LABEL maintainer="llnut"
@@ -53,11 +49,7 @@ ENV TZ=Asia/Shanghai \
     PATH="/usr/local/mysql/bin:${PATH}"
 
 # Install runtime dependencies
-RUN if [ -f /etc/apt/sources.list.d/debian.sources ]; then \
-      sed -i 's|https\?://deb.debian.org/debian|http://mirrors.tuna.tsinghua.edu.cn/debian|g' /etc/apt/sources.list.d/debian.sources && \
-      sed -i 's|https\?://deb.debian.org/debian-security|http://mirrors.tuna.tsinghua.edu.cn/debian-security|g' /etc/apt/sources.list.d/debian.sources; \
-    fi \
-    && dpkg --add-architecture i386 && \
+RUN dpkg --add-architecture i386 && \
     apt-get update && apt-get install -y --no-install-recommends \
     procps psmisc net-tools netcat-openbsd \
     # i386 runtime
