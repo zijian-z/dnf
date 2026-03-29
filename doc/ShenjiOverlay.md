@@ -187,6 +187,7 @@ GitHub Actions 工作流位于:
 若要直接消费 GitHub 发布的镜像，可使用:
 
 - `deploy/dnf/docker-compose/shenji_overlay/docker-compose.release.yaml`
+- `doc/DeployGitHubRelease.md`
 
 网页 GM 默认通过主服务映射到:
 
