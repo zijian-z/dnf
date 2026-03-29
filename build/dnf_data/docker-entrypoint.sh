@@ -154,6 +154,19 @@ mkdir -p /data/netbird
 mkdir -p /data/tailscale
 # 创建run脚本目录
 mkdir -p /data/run
+# 允许通过外部 volume 注入大体积 Script.pvf，避免将其提交到 git
+EXTERNAL_PVF_PATH="${EXTERNAL_PVF_PATH:-/data/pvf_external/Script.pvf}"
+if [ -f "$EXTERNAL_PVF_PATH" ]; then
+  if [ ! -f /data/Script.pvf ] || ! cmp -s "$EXTERNAL_PVF_PATH" /data/Script.pvf; then
+    echo "sync Script.pvf from external volume: $EXTERNAL_PVF_PATH"
+    cp "$EXTERNAL_PVF_PATH" /data/Script.pvf
+    chmod 777 /data/Script.pvf
+  else
+    echo "external Script.pvf already synced"
+  fi
+else
+  echo "external Script.pvf not found at $EXTERNAL_PVF_PATH"
+fi
 # 初始化数据
 bash /home/template/init/init.sh
 error_code=$?

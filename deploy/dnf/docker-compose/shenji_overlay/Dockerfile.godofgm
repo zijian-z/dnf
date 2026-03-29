@@ -1,0 +1,5 @@
+FROM scratch
+
+WORKDIR /opt/godofgm
+
+ENTRYPOINT ["/opt/godofgm/godofgm", "-x", "-p", "/opt/godofgm/config/server.json"]

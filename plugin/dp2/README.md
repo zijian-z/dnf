@@ -33,6 +33,40 @@ dp
 └── script
 ```
 
+## 从神迹 VMDK 同步到清风覆盖层
+
+如果你手上只有神迹虚拟机磁盘，而目标是继续使用清风镜像运行时，请不要整机迁移。
+
+推荐直接使用仓库内置的同步脚本:
+
+```bash
+chmod +x plugin/dp2/sync_from_vmdk.sh
+plugin/dp2/sync_from_vmdk.sh /path/to/DNFServer.vmdk
+```
+
+默认会生成一套可直接给清风 compose 使用的覆盖层:
+
+- `deploy/dnf/docker-compose/shenji_overlay/data/Script.pvf`
+- `deploy/dnf/docker-compose/shenji_overlay/data/channel`
+- `deploy/dnf/docker-compose/shenji_overlay/data/game`
+- `deploy/dnf/docker-compose/shenji_overlay/data/libfd.so`
+- `deploy/dnf/docker-compose/shenji_overlay/data/run/start_game.sh`
+- `deploy/dnf/docker-compose/shenji_overlay/data/run/start_channel.sh`
+- `deploy/dnf/docker-compose/shenji_overlay/data/dp`
+- `deploy/dnf/docker-compose/shenji_overlay/optional/df_game_r.shenji`
+
+其中:
+
+- `libfd.so` 和 `start_game.sh` 是从神迹 `run` 语义里抽出来的必要部分
+- `channel_amd64`、双份 `channel_info` 和 `start_channel.sh` 也是必要运行时
+- `Script.pvf` 会在本地同步出来做校验，但 `.gitignore` 已忽略该文件，不建议提交到 GitHub
+- GitHub 部署时请把 `Script.pvf` 单独上传到外部 Docker volume `shenji_overlay_pvf`
+- 不是只替换 `PVF + dp2` 就结束
+
+详细说明见:
+
+- `doc/ShenjiOverlay.md`
+
 ## 重启容器
 ```shell
 docker stop dnf
