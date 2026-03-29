@@ -154,6 +154,11 @@ mkdir -p /data/netbird
 mkdir -p /data/tailscale
 # 创建run脚本目录
 mkdir -p /data/run
+# 从镜像内置的神迹覆盖层同步到持久化目录。
+# 外部挂载的 Script.pvf 会在下面继续覆盖这里的默认值。
+if [ -x /usr/local/bin/apply-shenji-overlay.sh ]; then
+  /usr/local/bin/apply-shenji-overlay.sh
+fi
 # 允许通过外部 volume 注入大体积 Script.pvf，避免将其提交到 git
 EXTERNAL_PVF_PATH="${EXTERNAL_PVF_PATH:-/data/pvf_external/Script.pvf}"
 if [ -f "$EXTERNAL_PVF_PATH" ]; then

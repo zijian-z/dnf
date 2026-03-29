@@ -142,6 +142,52 @@ sudo docker compose up -d --build
 - `dnf-1` 通过本地 `build/Debian13-DNF/Dockerfile` 构建
 - `godofgm` 通过本地 `Dockerfile.godofgm` 构建
 
+### 2.1 打包成镜像并通过 GitHub 发布
+
+如果希望把 `shenji_overlay` 直接固化进 Docker 镜像，而不是每台机器都先跑本地 build，可以使用仓库补充的打包脚本和 GitHub Actions:
+
+```bash
+chmod +x plugin/dp2/package_shenji_overlay.sh
+plugin/dp2/package_shenji_overlay.sh
+```
+
+默认会生成:
+
+```text
+.artifacts/shenji-overlay-dnf.tar.gz
+.artifacts/shenji-overlay-gm.tar.gz
+.artifacts/shenji-overlay-summary.txt
+```
+
+其中:
+
+- `shenji-overlay-dnf.tar.gz` 用于构建叠加了神迹覆盖层的主服务镜像
+- `shenji-overlay-gm.tar.gz` 用于构建网页 GM 镜像
+- `shenji-overlay-summary.txt` 会标记本次打包是否包含 `Script.pvf` 和 `gm/dist/data/data.db`
+
+GitHub Actions 工作流位于:
+
+- `.github/workflows/publish-images.yml`
+
+它会发布三类镜像到 `ghcr.io/<owner>/`:
+
+- `dnf:debian13-qf1031-<version>`
+- `dnf-shenji-overlay:<version>`
+- `dnf-shenji-godofgm:<version>`
+
+如果打的是 tag，还会自动创建 GitHub Release，并上传上面三个打包产物。
+
+需要特别注意:
+
+- `Script.pvf` 仍然优先建议走外部卷 `shenji_overlay_pvf`
+- 仓库现有的 `EXTERNAL_PVF_PATH=/data/pvf_external/Script.pvf` 同步逻辑会继续生效
+- 即便镜像内打进了 `Script.pvf`，外部卷中的新文件仍会在启动时覆盖镜像内默认值
+- `gm/dist/data/data.db` 含有网页 GM 的 SQLite 状态数据，不建议默认作为公共发布资产长期固化；若需要保留现有账号和权限，请单独挂载 `./gm-data:/opt/godofgm/data`
+
+若要直接消费 GitHub 发布的镜像，可使用:
+
+- `deploy/dnf/docker-compose/shenji_overlay/docker-compose.release.yaml`
+
 网页 GM 默认通过主服务映射到:
 
 ```text
@@ -216,6 +262,7 @@ IP 配置额外注意:
 
 - 神迹 `Script.pvf` 与清风默认 `Script.pvf` 完全不同，而且体积明显更大
 - 因为 `Script.pvf` 体积过大，不适合直接放进 GitHub 仓库，部署时应改走外部 Docker volume
+- 仓库里额外加入的 `EXTERNAL_PVF_PATH` 处理只是为了让外部卷覆盖 `/data/Script.pvf`，并不改变清风原本的数据库初始化流程
 - 神迹 `dp2` 与仓库自带 `plugin/dp2/dp2.tgz` 的二进制主体基本一致
 - 最新神迹新生额外自带网页 GM，运行目录在 `root/dist`
 - VMDK 中存在 `libfd.so` 的二进制成品 `home/neople/game/libfd.so`

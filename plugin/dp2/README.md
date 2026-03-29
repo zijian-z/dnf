@@ -63,6 +63,21 @@ plugin/dp2/sync_from_vmdk.sh /path/to/DNFServer.vmdk
 - GitHub 部署时请把 `Script.pvf` 单独上传到外部 Docker volume `shenji_overlay_pvf`
 - 不是只替换 `PVF + dp2` 就结束
 
+如果要把这套覆盖层直接做成可发布镜像:
+
+```bash
+chmod +x plugin/dp2/package_shenji_overlay.sh
+plugin/dp2/package_shenji_overlay.sh
+```
+
+默认会在仓库根目录生成:
+
+- `.artifacts/shenji-overlay-dnf.tar.gz`
+- `.artifacts/shenji-overlay-gm.tar.gz`
+- `.artifacts/shenji-overlay-summary.txt`
+
+随后可通过 `.github/workflows/publish-images.yml` 发布到 GitHub Container Registry。
+
 详细说明见:
 
 - `doc/ShenjiOverlay.md`

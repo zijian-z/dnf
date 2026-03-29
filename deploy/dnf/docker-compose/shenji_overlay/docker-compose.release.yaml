@@ -1,0 +1,54 @@
+version: "2.3"
+
+services:
+
+  dnf-1:
+    image: ${DNF_IMAGE:-ghcr.io/zijian-z/dnf-shenji-overlay:latest}
+    hostname: dnf-1
+    environment:
+      - TZ=Asia/Shanghai
+      - SERVER_GROUP=3
+      - SERVER_GROUP_DB=cain
+      - DNF_DB_ROOT_PASSWORD=88888888
+      - DNF_DB_GAME_PASSWORD=uu5!^%jg
+      - GATE_AES_KEY=a1b2c3d4e5f6789012345678901234567890abcdef0123456789abcdef012345
+      - PUBLIC_IP=
+      - AUTO_PUBLIC_IP=true
+      - OPEN_CHANNEL='11'
+      - CLIENT_POOL_SIZE=10
+    shm_size: 8g
+    memswap_limit: -1
+    mem_limit: 1g
+    cpu_count: 1
+    restart: always
+    ports:
+      - 2000:180/tcp
+      - 3000:3306/tcp
+      - 5505:5505/tcp
+      - 8088:80/tcp
+      - 7001:7001/tcp
+      - 7001:7001/udp
+      - 7300:7300/tcp
+      - 7300:7300/udp
+      - 30011:30011/tcp
+      - 31011:31011/udp
+      - 2311-2313:2311-2313/udp
+    volumes:
+      - ./data:/data
+      - ./mysql:/var/lib/mysql
+      - ./log:/home/neople/game/log
+      - shenji_overlay_pvf:/data/pvf_external:ro
+
+  godofgm:
+    image: ${GM_IMAGE:-ghcr.io/zijian-z/dnf-shenji-godofgm:latest}
+    network_mode: "service:dnf-1"
+    depends_on:
+      - dnf-1
+    restart: always
+    volumes:
+      - ./gm-data:/opt/godofgm/data
+      - ./gm-log:/opt/godofgm/log
+
+volumes:
+  shenji_overlay_pvf:
+    external: true

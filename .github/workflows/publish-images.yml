@@ -1,0 +1,157 @@
+name: Publish Images
+
+on:
+  push:
+    tags:
+      - "v*"
+      - "release-*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "手动发布版本号，默认使用 sha-<7>"
+        required: false
+        type: string
+      publish_latest:
+        description: "手动发布时是否额外推送 latest 标签"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compute Release Metadata
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          owner_lc=$(printf '%s' "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
+
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            version="${GITHUB_REF_NAME}"
+            publish_latest="true"
+            release_name="${GITHUB_REF_NAME}"
+          else
+            input_version="${{ github.event.inputs.version }}"
+            if [[ -n "${input_version}" ]]; then
+              version="${input_version}"
+            else
+              version="sha-${GITHUB_SHA::7}"
+            fi
+            publish_latest="${{ github.event.inputs.publish_latest }}"
+            release_name=""
+          fi
+
+          base_repo="ghcr.io/${owner_lc}/dnf"
+          overlay_repo="ghcr.io/${owner_lc}/dnf-shenji-overlay"
+          gm_repo="ghcr.io/${owner_lc}/dnf-shenji-godofgm"
+
+          {
+            echo "version=${version}"
+            echo "publish_latest=${publish_latest}"
+            echo "release_name=${release_name}"
+            echo "base_repo=${base_repo}"
+            echo "overlay_repo=${overlay_repo}"
+            echo "gm_repo=${gm_repo}"
+            echo "base_version_tag=${base_repo}:debian13-qf1031-${version}"
+            echo "base_latest_tag=${base_repo}:debian13-qf1031-latest"
+            echo "overlay_version_tag=${overlay_repo}:${version}"
+            echo "overlay_latest_tag=${overlay_repo}:latest"
+            echo "gm_version_tag=${gm_repo}:${version}"
+            echo "gm_latest_tag=${gm_repo}:latest"
+          } >>"$GITHUB_OUTPUT"
+
+      - name: Login to GHCR
+        shell: bash
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Build Base Image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build \
+            -f build/Debian13-DNF/Dockerfile \
+            -t "${{ steps.meta.outputs.base_version_tag }}" \
+            .
+
+          if [[ "${{ steps.meta.outputs.publish_latest }}" == "true" ]]; then
+            docker tag "${{ steps.meta.outputs.base_version_tag }}" "${{ steps.meta.outputs.base_latest_tag }}"
+          fi
+
+      - name: Package Shenji Overlay Assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x plugin/dp2/package_shenji_overlay.sh
+          plugin/dp2/package_shenji_overlay.sh
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: shenji-overlay-assets-${{ steps.meta.outputs.version }}
+          path: .artifacts/
+          if-no-files-found: error
+
+      - name: Build Shenji Overlay DNF Image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build \
+            -f build/ShenjiOverlay-DNF/Dockerfile \
+            --build-arg BASE_IMAGE="${{ steps.meta.outputs.base_version_tag }}" \
+            -t "${{ steps.meta.outputs.overlay_version_tag }}" \
+            .
+
+          if [[ "${{ steps.meta.outputs.publish_latest }}" == "true" ]]; then
+            docker tag "${{ steps.meta.outputs.overlay_version_tag }}" "${{ steps.meta.outputs.overlay_latest_tag }}"
+          fi
+
+      - name: Build Shenji Overlay GM Image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build \
+            -f build/ShenjiOverlay-GM/Dockerfile \
+            -t "${{ steps.meta.outputs.gm_version_tag }}" \
+            .
+
+          if [[ "${{ steps.meta.outputs.publish_latest }}" == "true" ]]; then
+            docker tag "${{ steps.meta.outputs.gm_version_tag }}" "${{ steps.meta.outputs.gm_latest_tag }}"
+          fi
+
+      - name: Push Images
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          docker push "${{ steps.meta.outputs.base_version_tag }}"
+          docker push "${{ steps.meta.outputs.overlay_version_tag }}"
+          docker push "${{ steps.meta.outputs.gm_version_tag }}"
+
+          if [[ "${{ steps.meta.outputs.publish_latest }}" == "true" ]]; then
+            docker push "${{ steps.meta.outputs.base_latest_tag }}"
+            docker push "${{ steps.meta.outputs.overlay_latest_tag }}"
+            docker push "${{ steps.meta.outputs.gm_latest_tag }}"
+          fi
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ steps.meta.outputs.release_name }}
+          body_path: .artifacts/shenji-overlay-summary.txt
+          files: |
+            .artifacts/shenji-overlay-dnf.tar.gz
+            .artifacts/shenji-overlay-gm.tar.gz
+            .artifacts/shenji-overlay-summary.txt
