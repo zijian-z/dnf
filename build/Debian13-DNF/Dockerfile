@@ -29,12 +29,10 @@ RUN MYSQL=mysql-5.7.44-linux-glibc2.12-x86_64 && \
        ${MYSQL}/bin/mysql_ssl_rsa_setup ${MYSQL}/bin/resolveip /mysql/bin/ && \
     cp -a ${MYSQL}/lib/*.so* /mysql/lib/ && \
     cp -r ${MYSQL}/share/english ${MYSQL}/share/charsets /mysql/share/ && \
-    cp ${MYSQL}/share/*.sql ${MYSQL}/share/errmsg-utf8.txt /mysql/share/ 2>/dev/null || true && \
+    (cp ${MYSQL}/share/*.sql ${MYSQL}/share/errmsg-utf8.txt /mysql/share/ 2>/dev/null; true) && \
     rm -rf /tmp/*
 
 # Build dnf-compat-layer workspace for i686-unknown-linux-gnu target
-# glibc-compat: hooks glibc ABI functions for Debian 13 compatibility.
-# geoip-compat: GeoIP Legacy API replacement for libGeoIP.so.1.
 ARG DNF_COMPAT_LAYER_VERSION="0.1.0"
 RUN git clone --branch ${DNF_COMPAT_LAYER_VERSION} --depth 1 https://github.com/llnut/dnf-compat-layer.git /src \
     && cd /src && cargo build --workspace --release --target i686-unknown-linux-gnu
@@ -106,11 +104,11 @@ RUN for bin in mysql mysqld_safe mysqladmin mysqldump my_print_defaults; do \
 ARG GATE_VERSION="0.3.0"
 RUN apt-get update && apt-get install -y --no-install-recommends wget ca-certificates \
     && cd /tmp \
-    && wget -q https://raw.githubusercontent.com/1995chen/dnf_util/refs/heads/main/common_pkgs/lib.tgz \
+    && wget -q https://raw.githubusercontent.com/llnut/dnf_util/refs/heads/main/common_pkgs/lib.tgz \
     && tar -zxf lib.tgz \
     && rm -f /tmp/libGeoIP* \
-    && mv /tmp/*.so /lib/i386-linux-gnu/ 2>/dev/null || true \
-    && mv /tmp/*.so.1 /lib/i386-linux-gnu/ 2>/dev/null || true \
+    && (mv /tmp/*.so /lib/i386-linux-gnu/ 2>/dev/null; true) \
+    && (mv /tmp/*.so.1 /lib/i386-linux-gnu/ 2>/dev/null; true) \
     && rm -rf /tmp/* \
     && GATE_REPO="llnut/dnf-login" && GATE_TARGET="x86_64-unknown-linux-musl" && \
     if [ -z "${GATE_VERSION}" ]; then \
@@ -142,10 +140,6 @@ ENV MAIN_BRIDGE_IP='127.0.0.1' \
     MYSQL_GAME_ALLOW_IP='' \
     AUTO_PUBLIC_IP=false \
     PUBLIC_IP='' \
-    GM_ACCOUNT=gm_user \
-    GM_PASSWORD=gm_pass \
-    GM_CONNECT_KEY=763WXRBW3PFTC3IXPFWH \
-    GM_LANDER_VERSION=20180307 \
     DNF_DB_ROOT_PASSWORD=88888888 \
     DNF_DB_GAME_PASSWORD='uu5!^%jg' \
     WEB_USER=root \
@@ -170,7 +164,8 @@ ENV MAIN_BRIDGE_IP='127.0.0.1' \
     GATE_TLS_KEY_PATH='' \
     GATE_TLS_BIND_ADDRESS='0.0.0.0:5504' \
     GATE_TLS_ONLY=false \
-    GAME_SERVER_IP=''
+    GAME_SERVER_IP='' \
+    CLIENT_POOL_SIZE=10
 
 COPY build/dnf_data/ /
 

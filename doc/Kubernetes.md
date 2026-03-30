@@ -65,7 +65,7 @@ spec:
       containers:
       - name: dnf
         imagePullPolicy: IfNotPresent
-        image: 1995chen/dnf:centos5-2.1.5
+        image: llnut/dnf:debian13-qf1031-latest
         ports:
         - name: mysql
           containerPort: 3306

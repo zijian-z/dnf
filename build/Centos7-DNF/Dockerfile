@@ -1,28 +1,28 @@
 FROM centos:7.9.2009
 
-LABEL AUTHOR 1995chen
+LABEL AUTHOR llnut
 
 ENV TZ=Asia/Shanghai
 # 安装环境
 RUN cd /etc/yum.repos.d/ && rm -rf * && sed -i "s|enabled=1|enabled=0|g" /etc/yum/pluginconf.d/fastestmirror.conf && \
     # 添加源
-    curl -o CentOS-Base.repo https://raw.githubusercontent.com/1995chen/dnf_util/refs/heads/main/Centos7/CentOS-Base.repo && \
+    curl -o CentOS-Base.repo https://raw.githubusercontent.com/llnut/dnf_util/refs/heads/main/Centos7/CentOS-Base.repo && \
     # 更新软件
     yum clean all && yum update -y && yum install -y psmisc openssl openssl-devel curl wget perl vim iptables \
     gcc gcc-c++ make zlib-devel libc.so.6 libstdc++ libstdc++.so.6 glibc.i686 libssl.so.6 xulrunner.x86_64 libXtst.x86_64 initscripts bind-utils nc && \
     ln -sf /usr/lib64/libssl.so.10 /usr/lib64/libssl.so.6 && ln -sf /usr/lib64/libcrypto.so.10 /usr/lib64/libcrypto.so.6 && \
     # 下载软件
     cd /tmp && \
-    wget https://raw.githubusercontent.com/1995chen/dnf_util/refs/heads/main/common_pkgs/socat-1.7.4.3.tar.gz && \
-    wget https://raw.githubusercontent.com/1995chen/dnf_util/refs/heads/main/common_pkgs/Python-2.7.13.tgz && \
-    wget https://raw.githubusercontent.com/1995chen/dnf_util/refs/heads/main/common_pkgs/setuptools-18.0.1.tgz && \
-    wget https://raw.githubusercontent.com/1995chen/dnf_util/refs/heads/main/common_pkgs/pip-7.1.0.tar.gz && \
-    wget https://raw.githubusercontent.com/1995chen/dnf_util/refs/heads/main/common_pkgs/MySQL-shared-compat-5.0.95-1.rhel5.x86_64.rpm && \
-    wget https://raw.githubusercontent.com/1995chen/dnf_util/refs/heads/main/common_pkgs/MySQL-devel-community-5.0.95-1.rhel5.x86_64.rpm && \
-    wget https://raw.githubusercontent.com/1995chen/dnf_util/refs/heads/main/common_pkgs/MySQL-client-community-5.0.95-1.rhel5.x86_64.rpm && \
-    wget https://raw.githubusercontent.com/1995chen/dnf_util/refs/heads/main/common_pkgs/MySQL-server-community-5.0.95-1.rhel5.x86_64.rpm && \
-    wget https://raw.githubusercontent.com/1995chen/dnf_util/refs/heads/main/common_pkgs/GeoIP-1.4.8.tgz && \
-    wget https://raw.githubusercontent.com/1995chen/dnf_util/refs/heads/main/common_pkgs/lib.tgz && \
+    wget https://raw.githubusercontent.com/llnut/dnf_util/refs/heads/main/common_pkgs/socat-1.7.4.3.tar.gz && \
+    wget https://raw.githubusercontent.com/llnut/dnf_util/refs/heads/main/common_pkgs/Python-2.7.13.tgz && \
+    wget https://raw.githubusercontent.com/llnut/dnf_util/refs/heads/main/common_pkgs/setuptools-18.0.1.tgz && \
+    wget https://raw.githubusercontent.com/llnut/dnf_util/refs/heads/main/common_pkgs/pip-7.1.0.tar.gz && \
+    wget https://raw.githubusercontent.com/llnut/dnf_util/refs/heads/main/common_pkgs/MySQL-shared-compat-5.0.95-1.rhel5.x86_64.rpm && \
+    wget https://raw.githubusercontent.com/llnut/dnf_util/refs/heads/main/common_pkgs/MySQL-devel-community-5.0.95-1.rhel5.x86_64.rpm && \
+    wget https://raw.githubusercontent.com/llnut/dnf_util/refs/heads/main/common_pkgs/MySQL-client-community-5.0.95-1.rhel5.x86_64.rpm && \
+    wget https://raw.githubusercontent.com/llnut/dnf_util/refs/heads/main/common_pkgs/MySQL-server-community-5.0.95-1.rhel5.x86_64.rpm && \
+    wget https://raw.githubusercontent.com/llnut/dnf_util/refs/heads/main/common_pkgs/GeoIP-1.4.8.tgz && \
+    wget https://raw.githubusercontent.com/llnut/dnf_util/refs/heads/main/common_pkgs/lib.tgz && \
     # 解压
     tar -zxvf socat-1.7.4.3.tar.gz && \
     tar -zxvf Python-2.7.13.tgz && \

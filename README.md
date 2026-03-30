@@ -5,9 +5,9 @@
 
 ## 概述
 
-该项目基于 [1995chen/dnf](https://github.com/1995chen/dnf) 适配 **清风-1031** 版本，将地下城与勇士(毒奶粉、DNF、DOF)整合成一个 Docker 镜像的项目，本项目使用 `Debian 13` 为基础镜像（同时保留 `CentOS-7` 的历史镜像），通过增加环境变量以及初始化脚本实现应用的快速部署。
+本项目基于 [1995chen/dnf](https://github.com/1995chen/dnf) 适配 **清风-1031** 版本，将地下城与勇士（毒奶粉、DNF、DOF）打包为 Docker 镜像，支持 `Debian 13`、`Almalinux 9`、`Ubuntu 26`、`CentOS 7` 四种基础镜像，通过环境变量和初始化脚本实现快速部署。
 
-> **注意**：本项目使用 [llnut 登录器](https://github.com/llnut/dnf-login)，服务端环境变量和需要开放的端口与 1995chen 的版本有区别，请使用本仓库提供的配置文件进行部署，[详细区别见此](#vs-1995chen-dep)。若仍需要使用统一网关及其配套登录器，请前往镜像仓库拉取带`tongyigate`后缀的镜像，统一网关镜像后续不再维护。
+> **注意**：本项目使用 [llnut 登录器](https://github.com/llnut/dnf-login)，环境变量和端口与 1995chen 版本不同（[详细区别](#vs-1995chen-dep)），请使用本仓库的配置文件部署。统一网关用户请拉取 `tongyigate` 后缀的镜像，该镜像后续不再维护。
 
 ---
 
@@ -18,7 +18,7 @@
 
 ### 第一步：准备 Linux 环境
 
-参考以下指南在 Linux 服务器上完成初始化并安装所需软件。理论上本镜像可在任何未修改过的 Linux 操作系统上运行（不包括 ARM 架构）。
+参考以下指南完成服务器初始化。镜像支持 x86_64 架构的 Linux 系统。
 
 [初始化 Linux 服务器](doc/PrepareLinux.md)
 
@@ -72,7 +72,7 @@ docker run -d \
 
 **1. 查看日志**
 
-进入第二步创建的 `/data/log` 目录，查看 `Logxxxxxxxx.init` 文件（`xxxxxxxx` 为当天日期）：
+查看 `/data/log` 目录下的 `.init` 日志文件：
 
 ~~~shell
 ├── siroco11
@@ -88,7 +88,7 @@ docker run -d \
   ├── ...
 ~~~
 
-四国初始化时间约 1 分钟，成功后 `.init` 日志中会出现以下内容：
+初始化约 1 分钟，成功后 `.init` 日志中会出现以下内容：
 
 ~~~shell
 [root@centos-02 siroco11] tail -f Log$(date +%Y%m%d).init
@@ -107,7 +107,7 @@ docker run -d \
 **2. 查看进程**
 
 ~~~shell
-[root@centos-02 siroco11] ps -ef |grep df_game
+[root@centos-02 siroco11] ps -ef | grep df_game
 root 16500 16039 9 20:39 ? 00:01:20 ./df_game_r siroco11 start
 root 16502 16039 9 20:39 ? 00:01:22 ./df_game_r siroco52 start
 ~~~
@@ -116,35 +116,29 @@ root 16502 16039 9 20:39 ? 00:01:22 ./df_game_r siroco52 start
 
 **3. 查看进程管理页面**
 
-访问 `http://PUBLIC_IP:2000`，在页面上点击 `dnf:game_siroco11` 或 `dnf:game_siroco52` 进程的 `Tail -f` 查看实时日志。
+访问 `http://PUBLIC_IP:2000`，点击 `dnf:game_siroco11` 或 `dnf:game_siroco52` 进程的 `Tail -f` 查看实时日志。
 
 ### 第四步：配置客户端
 
-**下载客户端**：[百度网盘](https://pan.baidu.com/s/1AuDJ-VO4A9uToAsrg6ETGw?pwd=sora)，提取码：`sora`
+下载客户端：[百度网盘](https://pan.baidu.com/s/1AuDJ-VO4A9uToAsrg6ETGw?pwd=sora)，提取码：`sora`，下载后解压。
 
-**1. 解压客户端**
-
-下载并解压上述链接中的客户端。
-
-**2. 设置登录器**
+**1. 设置登录器**
 
 - 打开游戏根目录中的 `dnf-launcher.exe`
 - 点击下方的 ***设置*** 按钮，进入设置界面：
-    - **服务器地址**：`http://${PUBLIC_IP}:5505`（启用 HTTPS 则为 `https://${PUBLIC_IP}:5504`）
+    - **服务器地址**：`http://${PUBLIC_IP}:5505`（启用 HTTPS 则为 `https://${PUBLIC_IP}:5504`），PUBLIC_IP 与第二步中 `PUBLIC_IP` 的值保持一致
     - **AES 密钥**：与第二步中 `GATE_AES_KEY` 的值保持一致
 - 滚动到底部，点击保存
 
-**3. 开始游戏**
+**2. 开始游戏**
 
-点击 ***返回*** 回到登录器首页，创建账号并登录游戏。
-
-> ***注意：如上设置中的参数需与服务端启动时的配置保持一致，如有变动请按实际数据填写***
+返回登录器首页，创建账号并登录游戏。
 
 ---
 
 ## 重启服务
 
-该服务占用内存较大，可能被系统 OOM 杀死，重启命令：
+服务占用内存较大，可能被 OOM 杀死。重启命令：
 
 ```shell
 docker restart dnf
@@ -159,41 +153,34 @@ docker restart dnf
 
 > **升级到包含 DofSlim 的版本（镜像发布时间 2025.10.20）**
 >
-> 请先删除 Docker 挂载目录中的以下两个脚本文件（只需删除一次，后续重启不需要再删除），否则可能无法降低服务端内存占用：
+> 删除以下两个脚本后重启服务端（只需删除一次），否则内存占用可能不会降低：
 > ```bash
 > /data/run/start_bridge.sh
 > /data/run/start_channel.sh
 > ```
-> 删除后重启服务端即可。
 
 > **升级到替换了 llnut 登录器 0.2.1 的版本（镜像发布时间 2026.3.8）**
 >
-> 拉取并重启最新镜像后，需重新下载本仓库提供的最新客户端，并重新完成[第四步：配置客户端](#第四步配置客户端)中的登录器设置。
+> 拉取并重启最新镜像后，需重新下载本仓库提供的 20260308 版本客户端并完成[登录器设置](#第四步配置客户端)。
 
 > **升级到 llnut 登录器 0.3.0 的版本（镜像发布时间 2026.3.26）**
 >
 > 拉取并重启最新镜像后，可通过以下任一方式更新客户端：
-> - 重新下载本仓库提供的最新客户端
+> - 重新下载本仓库提供的 20260326 版本客户端
 > - 下载 `20260308-to-20260326-升级补丁.7z`，解压并覆盖到 20260308 版本的客户端目录中
 >
 > 新版客户端不再需要手动配置 `mlpz.ini`，游戏服务器 IP 由登录器自动从服务端获取。
 
-> **从 Centos7 切换到 Debian 13 镜像（镜像发布时间 2026.3.27）**
+> **从 CentOS 7 切换到 Debian 13 / Alma 9 / Ubuntu 26 镜像**
 >
-> **CentOS 7 与 Debian 13 的镜像互不兼容，不能共用已有数据。** 从 CentOS 7 镜像切换到 Debian 13 镜像前，必须完成以下操作：
->
-> 1. 停止并删除正在运行的旧容器
-> 2. **完全清除** Docker 挂载目录中的所有数据（包括 `/data`、`/var/lib/mysql`、`/home/neople/game/log` 对应的本地目录）
-> 3. 拉取新镜像后重新启动服务端
+> Debian 13、Alma 9、Ubuntu 26 三种镜像之间可以直接切换，无需清理数据。**但 CentOS 7 与这三种镜像互不兼容**，切换前必须清除所有挂载目录数据：
 >
 > ```bash
-> # 示例：清理数据（请根据实际挂载路径调整）
 > docker stop dnf && docker rm dnf
-> rm -rf /data/log/* /data/mysql/* /data/data/*
-> docker pull llnut/dnf:debian13-qf1031-latest
+> rm -rf /data/log/* /data/mysql/* /data/data/* # 路径按实际情况填写
 > ```
 >
-> **请务必提前备份重要数据。此操作不可逆，清除后原有的账号、角色等数据将无法恢复。若不想清理数据，也可使用数据库备份工具备份完整的旧库数据，之后导入到 Debian13 的新库。**
+> **清除后数据不可恢复，请提前备份。** 若不想清理数据，也可用数据库备份工具将旧库数据导入到新库。
 
 ---
 

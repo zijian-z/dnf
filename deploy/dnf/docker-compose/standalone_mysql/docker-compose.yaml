@@ -3,7 +3,6 @@ version: "2.3"
 services:
 
   mysql:
-      # 镜像已同步到阿里云镜像源
       image: 1995chen/mysql:7-5.0.95
       mem_limit: 1g
       environment:

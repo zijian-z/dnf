@@ -13,6 +13,9 @@ if [ -z "$MAIN_MYSQL_HOST" ] && [ -z "$MAIN_MYSQL_PORT" ] && [ -z "$MYSQL_HOST" 
   else
     echo "local mysql data already inited."
   fi
+
+  chown -R mysql:mysql /var/lib/mysql
+
   # 修改创建root账号
   service mysql start --skip-grant-tables
   mysql -u root <<EOF
@@ -24,8 +27,6 @@ EOF
   echo "update root password done."
   # 关闭服务
   service mysql stop
-  # 赋予权限
-  chmod 777 -R /var/lib/mysql
   echo "start local mysql...."
   service mysql start
 fi
