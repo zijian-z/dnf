@@ -1,11 +1,11 @@
 # Build dependencies: GeoIP data, MySQL 5.7, and dnf-compat-layer
-FROM debian:stable-slim AS builder
+FROM almalinux:9.7-minimal AS builder
 
-ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    wget ca-certificates curl gcc-multilib git \
-    && rm -rf /var/lib/apt/lists/*
+RUN microdnf install -y dnf && \
+    dnf install -y --allowerasing --setopt=install_weak_deps=False \
+    wget ca-certificates curl gcc gcc-c++ git tar gzip \
+    glibc-devel.i686 libstdc++-devel.i686 \
+    && dnf clean all
 
 # Install Rust toolchain
 ENV RUSTUP_HOME=/usr/local/rustup CARGO_HOME=/usr/local/cargo PATH="/usr/local/cargo/bin:${PATH}"
@@ -36,51 +36,50 @@ ARG DNF_COMPAT_LAYER_VERSION="0.1.0"
 RUN git clone --branch ${DNF_COMPAT_LAYER_VERSION} --depth 1 https://github.com/llnut/dnf-compat-layer.git /src \
     && cd /src && cargo build --workspace --release --target i686-unknown-linux-gnu
 
-FROM debian:stable-slim
+FROM almalinux:9.7-minimal
 
 LABEL maintainer="llnut"
 
 ENV TZ=Asia/Shanghai \
-    DEBIAN_FRONTEND=noninteractive \
     PATH="/usr/local/mysql/bin:${PATH}"
 
 # Install runtime dependencies
-RUN dpkg --add-architecture i386 && \
-    apt-get update && apt-get install -y --no-install-recommends \
-    procps psmisc net-tools netcat-openbsd \
-    # i386 runtime
-    libc6:i386 libstdc++6:i386 zlib1g:i386 \
-    # i386 font rendering for captcha generation
-    libfreetype6:i386 libfontconfig1:i386 \
+RUN microdnf install -y dnf && \
+    dnf install -y --allowerasing --setopt=install_weak_deps=False \
+    procps-ng psmisc net-tools nmap-ncat \
+    # i686 runtime
+    glibc.i686 libstdc++.i686 zlib.i686 libgcc.i686 nss-softokn-freebl.i686 \
+    # i686 font rendering for captcha generation
+    freetype.i686 fontconfig.i686 \
     # MySQL 5.7 runtime
-    libaio1t64 libnuma1 libncurses6 libtinfo6 \
-    libssl3t64:i386 \
+    libaio numactl-libs ncurses-libs \
+    openssl-libs.i686 \
     # supervisor
     python3 python3-pip \
     socat \
-    && pip3 install --no-cache-dir --break-system-packages 'setuptools>=69.5,<70' supervisor==4.2.5 \
-    && ln -sf /usr/lib/x86_64-linux-gnu/libncurses.so.6 /usr/lib/x86_64-linux-gnu/libncurses.so.5 \
-    && ln -sf /usr/lib/x86_64-linux-gnu/libtinfo.so.6 /usr/lib/x86_64-linux-gnu/libtinfo.so.5 \
-    && ln -sf /usr/lib/x86_64-linux-gnu/libaio.so.1t64 /usr/lib/x86_64-linux-gnu/libaio.so.1 \
+    && pip3 install --no-cache-dir 'setuptools>=69.5,<70' supervisor==4.2.5 \
+    # x86_64 symlinks for MySQL 5.7
+    && ln -sf /usr/lib64/libncurses.so.6 /usr/lib64/libncurses.so.5 \
+    && ln -sf /usr/lib64/libtinfo.so.6 /usr/lib64/libtinfo.so.5 \
     # x86_64 SSL symlinks for MySQL 5.7
-    && ln -sf /usr/lib/x86_64-linux-gnu/libssl.so.3 /usr/lib/x86_64-linux-gnu/libssl.so.6 \
-    && ln -sf /usr/lib/x86_64-linux-gnu/libcrypto.so.3 /usr/lib/x86_64-linux-gnu/libcrypto.so.6 \
+    && ln -sf /usr/lib64/libssl.so.3 /usr/lib64/libssl.so.6 \
+    && ln -sf /usr/lib64/libcrypto.so.3 /usr/lib64/libcrypto.so.6 \
     # i386 SSL symlinks for game binaries
-    && ln -sf /usr/lib/i386-linux-gnu/libssl.so.3 /lib/i386-linux-gnu/libssl.so.6 2>/dev/null || true \
-    && ln -sf /usr/lib/i386-linux-gnu/libcrypto.so.3 /lib/i386-linux-gnu/libcrypto.so.6 2>/dev/null || true \
+    && ln -sf /usr/lib/libssl.so.3 /usr/lib/libssl.so.6 \
+    && ln -sf /usr/lib/libcrypto.so.3 /usr/lib/libcrypto.so.6 \
     && groupadd mysql && useradd -r -g mysql -s /bin/false mysql \
     && mkdir -p /var/lib/mysql /var/run/mysqld /var/log/mysql \
     && chown -R mysql:mysql /var/lib/mysql /var/run/mysqld /var/log/mysql \
     && chmod 750 /var/lib/mysql /var/run/mysqld \
     && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone \
-    && apt-get clean && rm -rf /var/lib/apt/lists/* /root/.cache /tmp/*
+    && dnf clean all && rm -rf /root/.cache /tmp/*
 
 COPY --from=builder /usr/local/share/GeoIP /usr/local/share/GeoIP
 COPY --from=builder /mysql/bin/ /usr/local/mysql/bin/
 COPY --from=builder /mysql/lib/ /usr/local/mysql/lib/
 COPY --from=builder /mysql/share/ /usr/local/mysql/share/
 COPY --from=builder /src/target/i686-unknown-linux-gnu/release/libglibc_compat.so /usr/lib/libglibc_compat.so
-COPY --from=builder /src/target/i686-unknown-linux-gnu/release/libgeoip_compat.so /lib/i386-linux-gnu/libGeoIP.so.1
+COPY --from=builder /src/target/i686-unknown-linux-gnu/release/libgeoip_compat.so /usr/lib/libGeoIP.so.1
 
 # MySQL setup
 RUN for bin in mysql mysqld_safe mysqladmin mysqldump my_print_defaults; do \
@@ -100,13 +99,13 @@ RUN for bin in mysql mysqld_safe mysqladmin mysqldump my_print_defaults; do \
 
 # Install additional i386 shared libraries and download dnf-gate-server
 ARG GATE_VERSION="0.3.0"
-RUN apt-get update && apt-get install -y --no-install-recommends wget ca-certificates \
+RUN dnf install -y --setopt=install_weak_deps=False wget tar gzip \
     && cd /tmp \
     && wget -q https://raw.githubusercontent.com/1995chen/dnf_util/refs/heads/main/common_pkgs/lib.tgz \
     && tar -zxf lib.tgz \
     && rm -f /tmp/libGeoIP* \
-    && (mv /tmp/*.so /lib/i386-linux-gnu/ 2>/dev/null; true) \
-    && (mv /tmp/*.so.1 /lib/i386-linux-gnu/ 2>/dev/null; true) \
+    && (mv /tmp/*.so /usr/lib/ 2>/dev/null; true) \
+    && (mv /tmp/*.so.1 /usr/lib/ 2>/dev/null; true) \
     && rm -rf /tmp/* \
     && GATE_REPO="llnut/dnf-login" && GATE_TARGET="x86_64-unknown-linux-musl" && \
     if [ -z "${GATE_VERSION}" ]; then \
@@ -122,9 +121,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends wget ca-certifi
     [ "$EXPECTED" = "$ACTUAL" ] || { echo "ERROR: checksum mismatch for ${GATE_ASSET}" >&2; exit 1; } && \
     tar -xzf "/tmp/${GATE_ASSET}" --strip-components=1 -C /usr/bin "dnf-gate-server-${GATE_VERSION}-${GATE_TARGET}/dnf-gate-server" && \
     rm -f "/tmp/${GATE_ASSET}" "/tmp/${GATE_ASSET}.sha256" && \
-    apt-get purge -y wget && \
-    apt-get autoremove -y && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+    dnf remove -y wget && dnf clean all && rm -rf /tmp/* /var/cache/dnf
 
 ENV MAIN_BRIDGE_IP='127.0.0.1' \
     SERVER_GROUP_DB='cain' \

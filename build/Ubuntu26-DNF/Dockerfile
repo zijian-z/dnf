@@ -1,5 +1,5 @@
 # Build dependencies: GeoIP data, MySQL 5.7, and dnf-compat-layer
-FROM debian:stable-slim AS builder
+FROM ubuntu:resolute AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -36,7 +36,7 @@ ARG DNF_COMPAT_LAYER_VERSION="0.1.0"
 RUN git clone --branch ${DNF_COMPAT_LAYER_VERSION} --depth 1 https://github.com/llnut/dnf-compat-layer.git /src \
     && cd /src && cargo build --workspace --release --target i686-unknown-linux-gnu
 
-FROM debian:stable-slim
+FROM ubuntu:resolute
 
 LABEL maintainer="llnut"
 
