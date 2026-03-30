@@ -26,6 +26,9 @@ RUN MYSQL=mysql-5.7.44-linux-glibc2.12-x86_64 && \
     cp ${MYSQL}/bin/mysql ${MYSQL}/bin/mysqld ${MYSQL}/bin/mysqld_safe \
        ${MYSQL}/bin/mysqladmin ${MYSQL}/bin/mysqldump ${MYSQL}/bin/my_print_defaults \
        ${MYSQL}/bin/mysql_ssl_rsa_setup ${MYSQL}/bin/resolveip /mysql/bin/ && \
+    strip /mysql/bin/mysql /mysql/bin/mysqld /mysql/bin/mysqladmin \
+          /mysql/bin/mysqldump /mysql/bin/my_print_defaults \
+          /mysql/bin/mysql_ssl_rsa_setup /mysql/bin/resolveip && \
     cp -a ${MYSQL}/lib/*.so* /mysql/lib/ && \
     cp -r ${MYSQL}/share/english ${MYSQL}/share/charsets /mysql/share/ && \
     (cp ${MYSQL}/share/*.sql ${MYSQL}/share/errmsg-utf8.txt /mysql/share/ 2>/dev/null; true) && \
