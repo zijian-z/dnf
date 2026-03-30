@@ -1,89 +1,131 @@
-# 神迹 DP
+# 神迹 DP 与 Overlay 工具
 
-狗哥神迹·因果专用DP插件 
+狗哥神迹·因果专用 DP 插件。
 
 ## 版本信息
-dp2.9.0+frida_240418
 
-## 镜像版本要求
+`dp2.9.0+frida_240418`
 
-* dp2插件需要docker镜像版本>=2.1.9.fix1
-* game密码必须为默认密码
-* 需要配置环境变量SERVER_GROUP_DB=cain
-* 只支持希洛克大区
+## 固定约束
 
-## 如何使用
-将本目录下的dp2.tgz复制到/data/data/dp目录下,然后手动解压dp2.tgz。
-解压后目录结构如下:
-请务必删除原有的libhook.so文件！！！！！！！
-```shell
-dp
-├── df_game_r.js
-├── df_game_r.lua
-├── dp2.tgz
-├── frida
-├── lib
-├── libdp2.so
-├── libdp2.xml
-├── libGeoIP.so.1
-├── libhook.so
-├── lua
-├── lua2
-├── README.md
-└── script
-```
+当前神迹 overlay 方案默认依赖以下约束:
 
-## 从神迹 VMDK 同步到清风覆盖层
+- Docker 镜像版本建议 `>= 2.1.9.fix1`
+- `SERVER_GROUP=3`
+- `SERVER_GROUP_DB=cain`
+- `DNF_DB_GAME_PASSWORD=uu5!^%jg`
+- `OPEN_CHANNEL=11`
 
-如果你手上只有神迹虚拟机磁盘，而目标是继续使用清风镜像运行时，请不要整机迁移。
+除非明确验证通过，否则不要随意改。
 
-推荐直接使用仓库内置的同步脚本:
+## 本目录脚本的用途
 
-```bash
-chmod +x plugin/dp2/sync_from_vmdk.sh
-plugin/dp2/sync_from_vmdk.sh /path/to/DNFServer.vmdk
-```
+### 1. `sync_from_vmdk.sh`
 
-默认会生成一套可直接给清风 compose 使用的覆盖层:
+从神迹 VMDK 或已挂载根目录中提取运行时覆盖文件。
 
-- `deploy/dnf/docker-compose/shenji_overlay/data/Script.pvf`
-- `deploy/dnf/docker-compose/shenji_overlay/data/channel`
-- `deploy/dnf/docker-compose/shenji_overlay/data/game`
-- `deploy/dnf/docker-compose/shenji_overlay/data/libfd.so`
-- `deploy/dnf/docker-compose/shenji_overlay/data/run/start_game.sh`
-- `deploy/dnf/docker-compose/shenji_overlay/data/run/start_channel.sh`
-- `deploy/dnf/docker-compose/shenji_overlay/data/dp`
-- `deploy/dnf/docker-compose/shenji_overlay/optional/df_game_r.shenji`
+生成内容包括:
 
-其中:
+- `data/Script.pvf`
+- `data/df_game_r`
+- `data/libfd.so`
+- `data/game/*`
+- `data/channel/*`
+- `data/run/*`
+- `payload/dp_overlay.tgz`
+- `payload/gm_dist.tgz`
+- `meta/*`
 
-- `libfd.so` 和 `start_game.sh` 是从神迹 `run` 语义里抽出来的必要部分
-- `channel_amd64`、双份 `channel_info` 和 `start_channel.sh` 也是必要运行时
-- `Script.pvf` 会在本地同步出来做校验，但 `.gitignore` 已忽略该文件，不建议提交到 GitHub
-- GitHub 或本地部署时，`Script.pvf` 都应按清风风格直接放到 `./data/Script.pvf`
-- 不是只替换 `PVF + dp2` 就结束
+注意:
 
-如果要把这套覆盖层直接做成可发布镜像:
+- `df_game_r` 现在是默认覆盖文件，不再放在 `optional/`
+- `data/dp` 与 `gm/dist` 默认会被压成 `payload/*.tgz`
 
-```bash
-chmod +x plugin/dp2/package_shenji_overlay.sh
-plugin/dp2/package_shenji_overlay.sh
-```
+### 2. `build_db_overlay.sh`
 
-默认会在仓库根目录生成:
+基于 VMDK 全库 dump 生成数据库 overlay 和结构对比报告。
+
+它会:
+
+- 拆分 VMDK 全库 SQL
+- 对比清风初始化 SQL 与 VMDK SQL
+- 忽略 `INSERT` 数据差异
+- 保留表结构差异
+- 生成新的 `rootfs/home/template/init/init_sql.tgz`
+- 输出 `meta/db_compare/*`
+
+核心输出:
+
+- `meta/db_compare/schema_summary.txt`
+- `meta/db_compare/table_structure_diff.txt`
+- `rootfs/`
+
+### 3. `package_shenji_overlay.sh`
+
+将当前 overlay 目录打包为主镜像与 GM 镜像的构建工件。
+
+默认输出:
 
 - `.artifacts/shenji-overlay-dnf.tar.gz`
 - `.artifacts/shenji-overlay-gm.tar.gz`
 - `.artifacts/shenji-overlay-summary.txt`
 
-随后可通过 `.github/workflows/publish-images.yml` 发布到 GitHub Container Registry。
+### 4. `update_from_vmdk.sh`
 
-详细说明见:
+一键执行完整流程:
 
-- `doc/ShenjiOverlay.md`
+1. 同步 VMDK 文件
+2. 生成数据库 overlay
+3. 打包构建工件
 
-## 重启容器
-```shell
-docker stop dnf
-docker start dnf
+## 推荐流程
+
+### 一键执行
+
+```bash
+plugin/dp2/update_from_vmdk.sh /path/to/DNFServer.vmdk /path/to/vmdk_latest_all.sql.gz
 ```
+
+### 分步执行
+
+```bash
+plugin/dp2/sync_from_vmdk.sh /path/to/DNFServer.vmdk
+plugin/dp2/build_db_overlay.sh /path/to/vmdk_latest_all.sql.gz
+plugin/dp2/package_shenji_overlay.sh
+```
+
+之后进入:
+
+```bash
+cd deploy/dnf/docker-compose/shenji_overlay
+./compose.sh up -d --build
+```
+
+## 关于数据库对比
+
+当前数据库策略已经固定:
+
+- 最终导入内容以 VMDK dump 为准
+- 清风初始化 SQL 只用来做差异对比
+- `INSERT` 数据差异忽略
+- 表结构差异必须保留
+
+当前对比报告输出在:
+
+```text
+deploy/dnf/docker-compose/shenji_overlay/meta/db_compare/
+```
+
+## 关于 GitHub 仓库里的大目录
+
+为了避免 overlay 文件过多、难以审阅，当前策略是:
+
+- 保留少量关键可读文件在 `data/`
+- 将 `dp` 和 `gm/dist` 压缩为 `payload/*.tgz`
+- 需要打包 rootfs 时再自动解压
+
+## 手工 DP 使用方式
+
+如果你只是单独使用本目录原始 DP 包，可以继续按老方式解压 `dp2.tgz` 到清风的 `data/dp/` 目录。
+
+但如果你的目标是“把神迹 VMDK 适配到清风 Docker 化方案”，请优先使用上面的 overlay 脚本流程，而不是手工散改目录。

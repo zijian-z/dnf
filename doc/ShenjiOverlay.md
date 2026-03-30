@@ -1,164 +1,182 @@
-# 神迹玩法覆盖层
+# 神迹 Overlay 方案
 
-本文档描述的是一种**可重复执行**的迁移方式:
+本文档对应当前仓库的最终目标:
 
-1. 运行时继续使用清风 `qf1031` 镜像
-2. 神迹玩法只通过少量覆盖文件注入
-3. 最新神迹新生自带的网页 GM 作为独立 sidecar 跟随同步
-4. 主服务和网页 GM 都通过本地 Docker build 生成
-5. 后续无论是清风镜像更新，还是 `VMDK` 更新，都只需要重新跑一遍同步脚本
+1. 继续复用清风 `qf1031` 的 Docker 化运行时
+2. 神迹内容只通过 overlay 方式叠加，不直接侵入清风原始文件
+3. 数据库以 VMDK 导出结果为准，不再以清风初始化 SQL 为准
+4. 后续无论是清风仓库更新还是 VMDK 更新，都可以重复执行同一套脚本
 
-## 设计原则
+## 设计结论
 
-### 保留清风
+### 1. VMDK 是最终基线
 
-以下内容默认继续使用清风镜像提供的版本:
+- 运行时覆盖文件以神迹 VMDK 为准
+- 数据库初始化 SQL 以 VMDK 全库 dump 为准
+- 清风初始化 SQL 只作为对比输入，不作为最终导入基线
 
-- 容器运行时
-- 登录器网关和基础优化
-- `bridge` 等公共进程二进制
-- 数据库初始化流程
-- Supervisor / compose / Docker 启动方式
+### 2. 数据库差异只看结构，不看数据
 
-当前唯一明确需要从神迹覆盖的公共进程是:
+当前对比逻辑固定为:
 
-- `channel_amd64`
-- `channel_info/channel_info.etc`
+- 忽略 `INSERT`
+- 忽略 `REPLACE`
+- 忽略 `LOCK TABLES`
+- 忽略 `UNLOCK TABLES`
+- 忽略 `CREATE TABLE` 中仅代表当前数据状态的 `AUTO_INCREMENT=<数字>`
 
-### 仅同步神迹玩法相关文件
+当前对比逻辑会输出三类结果:
 
-当前确认需要同步的内容:
+- 仅清风存在的库
+- 仅 VMDK 存在的库
+- 同名表的 `CREATE TABLE` 结构差异
 
-- `home/neople/game/Script.pvf`
-- `home/neople/game/libfd.so`
-- `home/neople/game/channel_info/*`
-- `home/neople/channel/channel_amd64`
-- `home/neople/channel/channel_info/*`
-- `dp2/df_game_r.lua`
-- `dp2/df_game_r.js`
-- `dp2/libdp2pre.so`，落到清风的 `data/dp/libhook.so`
-- `root/dist`，作为网页 GM sidecar 的运行目录
-- `root/run` / `root/run_nopvp` 的启动语义，用来修正清风侧的 `start_game.sh` 和 `start_channel.sh`
+对比结果固定输出到:
 
-当前默认**不直接启用**的内容:
+```text
+deploy/dnf/docker-compose/shenji_overlay/meta/db_compare/
+├── schema_summary.txt
+├── only_in_qf_databases.txt
+├── only_in_vmdk_databases.txt
+├── qf_only_tables.txt
+├── vmdk_only_tables.txt
+└── table_structure_diff.txt
+```
 
-- `home/neople/game/df_game_r`
+### 3. `df_game_r` 默认替换
 
-原因:
+当前策略已经改为:
 
-- 神迹与清风的 `libdp2.so`、`libdp2game.so` 实际相同
-- 但最新神迹 `run` 脚本不是挂 `frida.so`，而是挂 `libfd.so`
-- 最新神迹 `run` 脚本起的是 `channel_amd64`，不是清风默认的 `df_channel_r`
-- 神迹双份 `channel_info.etc` 与清风默认值不同
-- 当前优先保留清风的 `df_game_r` 二进制，只把神迹确认必要的 preload 语义抽出来
+- `data/df_game_r` 为默认覆盖文件
+- 不再放在 `optional/`
+- 后续构建 rootfs overlay 时会直接写入镜像覆盖层
 
-## 为什么不整机迁移
+### 4. 大目录以归档形式保留
 
-以下目录默认不整包搬进覆盖层:
+为了减少 GitHub 上的噪音，当前仓库默认不保留以下目录的展开版本:
 
-- `/opt/lampp`
+- `data/dp`
+- `gm/dist`
 
-这个目录属于神迹原虚拟机的运行环境和旧数据库打包方式，不适合作为清风镜像的长期叠加层。
+它们会被收敛为:
 
-但有两个例外不能忽略:
+```text
+deploy/dnf/docker-compose/shenji_overlay/payload/dp_overlay.tgz
+deploy/dnf/docker-compose/shenji_overlay/payload/gm_dist.tgz
+```
 
-- `/root/dist` 会被单独抽出来做网页 GM sidecar
-- `/root/run*` 和 `/root/server` 不直接照搬，但它们的“启动语义”和 `libfd.so` 产物必须提取出来
-- `home/neople/channel/channel_amd64` 和 `home/neople/*/channel_info` 必须保留
+需要组装 overlay 时，再临时解压使用。
 
-## 使用方式
+### 5. compose 采用分层覆盖
 
-### 1. 生成覆盖层
+当前本地启动不再要求直接维护一份完整的独立 compose。
 
-在仓库根目录执行:
+实际推荐入口是:
 
 ```bash
-chmod +x plugin/dp2/sync_from_vmdk.sh
-plugin/dp2/sync_from_vmdk.sh /home/ubuntu/dnf/DNFServer.vmdk
+deploy/dnf/docker-compose/shenji_overlay/compose.sh
 ```
 
-默认输出到:
+它会组合:
+
+1. `docker-compose.project.yaml`
+2. 清风原始 `../basic/docker-compose.yaml`
+3. `docker-compose.override.yaml`
+
+这样可以把对清风 compose 的侵入降到最低。
+
+## 目录说明
+
+当前 overlay 目录的关键内容如下:
 
 ```text
 deploy/dnf/docker-compose/shenji_overlay
-```
-
-脚本会生成:
-
-```text
-deploy/dnf/docker-compose/shenji_overlay
+├── compose.sh
+├── docker-compose.project.yaml
+├── docker-compose.override.yaml
 ├── data
 │   ├── Script.pvf
-│   ├── channel
-│   ├── game
+│   ├── df_game_r
 │   ├── libfd.so
-│   ├── dp
-│   └── run
-├── gm
-│   └── dist
+│   ├── game/
+│   ├── channel/
+│   └── run/
+├── payload
+│   ├── dp_overlay.tgz
+│   └── gm_dist.tgz
 ├── meta
 │   ├── checksums.txt
+│   ├── db_compare/
+│   ├── db_overlay_summary.txt
 │   ├── recommended-env.txt
-│   ├── shenji_overlay.manifest
-│   ├── source_scripts
-│   └── source.txt
-└── optional
-    ├── df_game_r.shenji
-    └── libfd_source
+│   └── source_scripts/
+└── rootfs
+    ├── home/template/init/
+    └── opt/shenji-overlay-meta/
 ```
 
-其中有一点需要单独处理:
+说明:
 
-- `data/Script.pvf` 就是清风风格的外部持久化文件
-- 该文件已经被 `.gitignore` 忽略，不建议提交到 GitHub
-- 本地 build 和 GitHub 发布版都统一按 `./data/Script.pvf` 管理
+- `data/` 只保留需要人工审阅、部署时常用的少量覆盖文件
+- `payload/*.tgz` 用来存放大目录
+- `rootfs/` 是最终要打进主镜像的 rootfs overlay
+- `meta/` 用来保留比对结果、来源信息和校验信息
 
-### 2. 启动清风容器
+## 一键流程
 
-先准备清风风格的外部目录:
+### 方式一: 一键更新
 
 ```bash
-cd deploy/dnf/docker-compose/shenji_overlay
-mkdir -p data data/godofgm mysql log log/godofgm
+plugin/dp2/update_from_vmdk.sh /path/to/DNFServer.vmdk /path/to/vmdk_latest_all.sql.gz
 ```
 
-如果本次覆盖层目录内已经有 `data/Script.pvf`，可以直接使用。
+它会顺序执行:
 
-如果你手头另有一份要替换的 PVF，则直接覆盖到:
+1. `sync_from_vmdk.sh`
+2. `build_db_overlay.sh`
+3. `package_shenji_overlay.sh`
+
+适合后续重复更新。
+
+### 方式二: 分步执行
+
+#### 1. 从 VMDK 同步覆盖文件
 
 ```bash
-cp /绝对路径/Script.pvf ./data/Script.pvf
+plugin/dp2/sync_from_vmdk.sh /path/to/DNFServer.vmdk
 ```
 
+这一步会:
+
+- 提取神迹 `Script.pvf`
+- 提取神迹 `df_game_r`
+- 提取 `libfd.so`
+- 提取 `channel_amd64` 和双份 `channel_info`
+- 提取 `run` 语义并生成覆盖版 `start_game.sh` / `start_channel.sh`
+- 提取网页 GM 目录
+- 将 `data/dp`、`gm/dist` 压缩为 `payload/*.tgz`
+
+#### 2. 基于 VMDK dump 生成数据库 overlay
+
 ```bash
-cd deploy/dnf/docker-compose/shenji_overlay
-sudo docker compose up -d --build
+plugin/dp2/build_db_overlay.sh /path/to/vmdk_latest_all.sql.gz
 ```
 
-这个 compose 会同时启动:
+这一步会:
 
-- `dnf-1`: 清风主服务
-- `godofgm`: 神迹新生网页 GM sidecar
+- 将 VMDK 全库 dump 拆成分库 SQL
+- 将清风初始化 SQL 与 VMDK SQL 做结构对比
+- 生成 `meta/db_compare/*`
+- 将最终导入 SQL 改写为基于 VMDK 的 `init_sql.tgz`
+- 组装 `rootfs/`
 
-其中:
-
-- `dnf-1` 通过本地 `build/Debian13-DNF/Dockerfile` 构建
-- `godofgm` 通过本地 `Dockerfile.godofgm` 构建
-- `godofgm` 现已改成和发布版一致的外部持久化方式:
-  - 镜像内自带默认 `data.db`
-  - 首启缺失时自动播种到 `./data/godofgm/data.db`
-  - 后续网页 GM 的修改始终落在外部 `./data/godofgm/data.db`
-
-### 2.1 打包成镜像并通过 GitHub 发布
-
-如果希望把 `shenji_overlay` 直接固化进 Docker 镜像，而不是每台机器都先跑本地 build，可以使用仓库补充的打包脚本和 GitHub Actions:
+#### 3. 打包构建工件
 
 ```bash
-chmod +x plugin/dp2/package_shenji_overlay.sh
 plugin/dp2/package_shenji_overlay.sh
 ```
 
-默认会生成:
+默认输出:
 
 ```text
 .artifacts/shenji-overlay-dnf.tar.gz
@@ -166,165 +184,96 @@ plugin/dp2/package_shenji_overlay.sh
 .artifacts/shenji-overlay-summary.txt
 ```
 
-其中:
+#### 4. 本地 compose 启动
 
-- `shenji-overlay-dnf.tar.gz` 用于构建叠加了神迹覆盖层的主服务镜像
-- `shenji-overlay-gm.tar.gz` 用于构建网页 GM 镜像
-- `shenji-overlay-summary.txt` 会标记本次打包是否包含 `Script.pvf` 和 `gm/dist/data/data.db`
-
-GitHub Actions 工作流位于:
-
-- `.github/workflows/publish-images.yml`
-
-它会发布三类镜像到 `ghcr.io/<owner>/`:
-
-- `dnf:debian13-qf1031-<version>`
-- `dnf-shenji-overlay:<version>`
-- `dnf-shenji-godofgm:<version>`
-
-如果打的是 tag，还会自动创建 GitHub Release，并上传上面三个打包产物。
-
-需要特别注意:
-
-- 发布版部署应继续参考清风原有的外部 `data` 目录思路
-- 镜像内置的神迹覆盖层文件只在缺失时初始化到 `./data`，不会覆盖已存在的外部文件
-- `Script.pvf` 建议直接放到外部 `./data/Script.pvf`
-- `gm/dist/data/data.db` 建议作为默认种子随镜像发布，首启自动初始化到外部 `./data/godofgm/data.db`
-- 后续网页 GM 的状态变更始终落在外部 `./data/godofgm/data.db`
-- 若希望 GitHub 发布版默认带上 `data.db`，需确保 `deploy/dnf/docker-compose/shenji_overlay/gm/dist/data/data.db` 已提交到仓库
-
-若要直接消费 GitHub 发布的镜像，可使用:
-
-- `deploy/dnf/docker-compose/shenji_overlay/docker-compose.release.yaml`
-- `doc/DeployGitHubRelease.md`
-
-其中 `doc/DeployGitHubRelease.md` 额外说明了:
-
-- 发布版部署继续如何遵循清风外部 `data` 目录模式
-- GitHub 发布镜像相对于清风基础镜像到底替换了哪些部分
-
-网页 GM 默认通过主服务映射到:
-
-```text
-http://<PUBLIC_IP>:8088
+```bash
+cd deploy/dnf/docker-compose/shenji_overlay
+./compose.sh up -d --build
 ```
 
-### 3. 只在必要时启用神迹 `df_game_r`
+注意:
 
-默认策略是不替换清风的 `df_game_r`。
+- `compose.sh` 依赖 `.artifacts/` 中的打包结果
+- 所以本地启动前需要先执行 `package_shenji_overlay.sh`
 
-但默认已经启用了神迹 `run` 语义提取版 `data/run/start_game.sh`:
+## rootfs 覆盖内容
 
-- `Script.pvf` 直接使用外部 `./data/Script.pvf`
-- 如果存在 `data/libfd.so`，启动时会复制到 `/home/neople/game/libfd.so`
-- 游戏进程会按神迹原始思路挂载 `libhook.so + libfd.so`
-- 如果存在 `data/game/channel_info/*`，启动前会覆盖到 `/home/neople/game/channel_info`
-- 只有在这样仍然跑不通时，才考虑继续替换 `df_game_r`
+当前主镜像真正写入的是 `rootfs/`，不是旧的整目录快照。
 
-同样，频道进程也不再直接沿用清风默认脚本:
+`rootfs/` 中包含:
 
-- `data/run/start_channel.sh` 会继续使用清风的动态 `channel.cfg` 生成逻辑
-- 但若存在 `data/channel/channel_amd64`，实际启动的是神迹 `channel_amd64`
-- `channel.cfg` 中原来写死的 `192.168.200.131` 会被 `MONITOR_PUBLIC_IP` 动态替换
-- 若某次神迹更新缺失 `channel_amd64`，脚本会自动回退到清风 `df_channel_r`
+- 基于 VMDK 生成的 `home/template/init/init_sql.tgz`
+- `df_game_r`
+- `dp`
+- `run`
+- `game/channel_info`
+- `channel/channel_amd64`
+- `channel/channel_info`
+- `libfd.so`
+- 数据库对比报告和源脚本元数据
 
-如果后续验证发现:
+这意味着:
 
-- `Script.pvf + 神迹 dp2 + 清风 df_game_r` 仍无法启动
-- 或者玩法逻辑明显缺失
+- 清风更新时，只要它的基础运行时兼容，这套 overlay 可以继续复用
+- VMDK 更新时，只要重新生成 payload、DB overlay 和工件即可
 
-再人工将 `optional/df_game_r.shenji` 替换到 `data/df_game_r` 做二次验证。
+## IP 与启动脚本策略
 
-## 固定约束
+当前 overlay 启动脚本已经按下面原则处理:
 
-神迹 DP 当前应维持以下约束:
+- 保留清风的 Docker 化启动方式
+- 保留清风的动态 IP 配置能力
+- 神迹写死 IP 的部分改为使用 `PUBLIC_IP` / `AUTO_PUBLIC_IP`
+- 保留 `libglibc_compat.so` 的兼容行为
+- 频道进程优先使用神迹 `channel_amd64`
 
-- `SERVER_GROUP=3`
-- `SERVER_GROUP_DB=cain`
-- `DNF_DB_GAME_PASSWORD=uu5!^%jg`
-- 建议先只开 `OPEN_CHANNEL=11`
+固定环境约束如下:
 
-这些约束也已经写进:
+```dotenv
+SERVER_GROUP=3
+SERVER_GROUP_DB=cain
+DNF_DB_GAME_PASSWORD=uu5!^%jg
+OPEN_CHANNEL=11
+```
 
-- `plugin/dp2/README.md`
-- `deploy/dnf/docker-compose/shenji_overlay/docker-compose.yaml`
-- `meta/recommended-env.txt`
+除非明确验证通过，否则不要随意改动。
 
-IP 配置额外注意:
+## 关于 `Script.pvf`
 
-- `docker-compose.yaml` 不再默认写死 `127.0.0.1`
-- 若是公网部署，建议保留 `PUBLIC_IP=` 并启用 `AUTO_PUBLIC_IP=true`
-- 若是局域网部署，直接手填局域网 IP，并把 `AUTO_PUBLIC_IP=false`
+- `Script.pvf` 仍按清风风格放在 `./data/Script.pvf`
+- 仓库中的 `deploy/dnf/docker-compose/shenji_overlay/data/Script.pvf` 已加入 `.gitignore`
+- 是否被打入工件，以 `shenji-overlay-summary.txt` 为准
 
-## 更新流程
+## 常用产物
 
-当清风镜像更新时:
+后续排查时最常看的文件:
 
-1. 更新仓库
-2. 重新执行 `plugin/dp2/sync_from_vmdk.sh`
-3. 如有需要，直接替换 `deploy/dnf/docker-compose/shenji_overlay/data/Script.pvf`
-4. 在 `deploy/dnf/docker-compose/shenji_overlay` 下执行 `sudo docker compose up -d --build`
+- `deploy/dnf/docker-compose/shenji_overlay/meta/db_compare/schema_summary.txt`
+- `deploy/dnf/docker-compose/shenji_overlay/meta/db_compare/table_structure_diff.txt`
+- `deploy/dnf/docker-compose/shenji_overlay/meta/db_overlay_summary.txt`
+- `deploy/dnf/docker-compose/shenji_overlay/meta/checksums.txt`
+- `.artifacts/shenji-overlay-summary.txt`
 
-当 VMDK 更新时:
+## 更新建议
 
-1. 替换新的 `VMDK`
-2. 重新执行 `plugin/dp2/sync_from_vmdk.sh`
-3. 检查 `meta/checksums.txt`
-4. 如有需要，替换 `deploy/dnf/docker-compose/shenji_overlay/data/Script.pvf`
-5. 在 `deploy/dnf/docker-compose/shenji_overlay` 下执行 `sudo docker compose up -d --build`
+### 清风更新后
 
-## 当前已确认的差异结论
+```bash
+git pull
+plugin/dp2/build_db_overlay.sh /path/to/vmdk_latest_all.sql.gz
+plugin/dp2/package_shenji_overlay.sh
+cd deploy/dnf/docker-compose/shenji_overlay
+./compose.sh up -d --build
+```
 
-- 神迹 `Script.pvf` 与清风默认 `Script.pvf` 完全不同，而且体积明显更大
-- 因为 `Script.pvf` 体积过大，不适合直接放进 GitHub 仓库，所以发布版是否内置它，要以 `shenji-overlay-summary.txt` 为准
-- 无论是本地 build 还是 GitHub 发布版，运行时都统一按清风风格把 PVF 放在 `./data/Script.pvf`
-- 神迹 `dp2` 与仓库自带 `plugin/dp2/dp2.tgz` 的二进制主体基本一致
-- 最新神迹新生额外自带网页 GM，运行目录在 `root/dist`
-- VMDK 中存在 `libfd.so` 的二进制成品 `home/neople/game/libfd.so`
-- VMDK 中存在 `libfd.so` 的 C++ 源码目录 `root/server`
-- VMDK 的 `run` / `run_nopvp` 明确使用 `LD_PRELOAD="/dp2/libdp2pre.so:/home/neople/game/libfd.so"`
-- VMDK 的 `run` / `run_nopvp` 明确使用 `channel_amd64`
-- VMDK 的 `game/channel_info.etc` 和 `channel/channel_info.etc` 都与清风默认版本不同
-- 主要差异集中在:
-  - `libfd.so`
-  - `channel_amd64`
-  - `channel_info.etc`
-  - `df_game_r.lua`
-  - `df_game_r.js`
-  - `libdp2pre.so` 对应清风侧的 `libhook.so`
+如果神迹 VMDK 内容没有变化，通常不需要重新挂载同步文件，只需要重建 DB overlay 和工件。
 
-这意味着“玩法覆盖层”的主战场是 `PVF + DP 脚本 + libfd preload 语义 + channel_amd64/channel_info`，而不是整机环境。
+### VMDK 更新后
 
-## 数据库比对结论
+```bash
+plugin/dp2/update_from_vmdk.sh /path/to/DNFServer.vmdk /path/to/vmdk_latest_all.sql.gz
+cd deploy/dnf/docker-compose/shenji_overlay
+./compose.sh up -d --build
+```
 
-当前已经对 VMDK 与清风初始化逻辑做过一轮实际比对，结论如下:
-
-- 网页 GM 的 `root/dist/data/data.db` 与仓库内 `deploy/dnf/docker-compose/shenji_overlay/gm/dist/data/data.db` 当前是**字节级完全一致**
-- VMDK 里的网页 GM 配置 `root/dist/config/server.json` 与仓库内 `gm/dist/config/server.json` 当前也是一致的
-- VMDK 主业务服实际使用的 MySQL 账号密码仍然是 `game / uu5!^%jg`
-- VMDK 游戏进程启动日志显示，实际连接的是 `d_taiwan`、`d_taiwan_secu`、`taiwan_cain`、`taiwan_cain_2nd`、`taiwan_cain_log`、`taiwan_login`、`taiwan_prod`、`taiwan_game_event`、`taiwan_se_event`、`taiwan_billing`、`taiwan_cain_auction_gold` 这一组库
-- 这组库与清风 `init_main_db.sh + init_server_group_db.sh` 当前初始化并重写 `db_connect` 的目标集合是一致的
-
-同时也确认了几个差异点:
-
-- VMDK 的 MySQL 数据目录里额外有一个 `frida` 库
-- 这个 `frida` 库不是靠初始化 SQL 预置的，而是神迹 DP 在运行时通过 `create database if not exists frida` 自动创建
-- VMDK 的 MySQL 数据目录里也存在 `taiwan_siroco`
-- 但从神迹实际配置和运行日志看，当前业务服并不是直接把 `taiwan_siroco` 当作主业务库在用，`siroco` 更像服务组/频道命名
-
-所以当前迁移策略里“主 MySQL 初始化继续沿用清风”是成立的，不需要额外把 VMDK 的 `/opt/lampp/var/mysql` 整包搬进 Docker。
-
-## 关于源码
-
-当前在 VMDK 中能明确找到的源码是:
-
-- `root/server`: `libfd.so` 的 C++ 注入源码
-
-当前没有找到网页 GM 的 Go / Vue 源码文件，只有:
-
-- 已编译的 `root/dist/godofgm`
-- 前端静态资源 `root/dist/web`
-- 配置 `root/dist/config/server.json`
-- sqlite 数据 `root/dist/data/data.db`
-
-因此网页 GM 目前按**现成二进制 sidecar**处理，而不是按源码重建处理。
+这是推荐方式。

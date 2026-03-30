@@ -6,8 +6,5 @@ LABEL org.opencontainers.image.description="Qingfeng qf1031 base image with Shen
 
 COPY .artifacts/shenji-overlay-dnf.tar.gz /tmp/shenji-overlay-dnf.tar.gz
 
-RUN mkdir -p /opt/shenji-overlay \
-    && tar -xzf /tmp/shenji-overlay-dnf.tar.gz -C /opt/shenji-overlay \
+RUN tar -xzf /tmp/shenji-overlay-dnf.tar.gz -C / \
     && rm -f /tmp/shenji-overlay-dnf.tar.gz
-
-ENV SHENJI_OVERLAY_ROOT=/opt/shenji-overlay

@@ -6,6 +6,8 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd -- "$SCRIPT_DIR/../.." && pwd)
 DEFAULT_OVERLAY_DIR="$REPO_ROOT/deploy/dnf/docker-compose/shenji_overlay"
 DEFAULT_OUTPUT_DIR="$REPO_ROOT/.artifacts"
+GM_DIST_PAYLOAD_PATH="payload/gm_dist.tgz"
+TMP_ROOT=""
 
 usage() {
   cat <<'EOF'
@@ -15,7 +17,8 @@ usage() {
 说明:
   1. 默认从 deploy/dnf/docker-compose/shenji_overlay 打包
   2. 默认输出到 .artifacts/
-  3. Script.pvf 和 gm/dist/data/data.db 都是可选文件
+  3. DNF 主服务现在打包的是 rootfs overlay，而不是旧的 data 目录快照
+  4. Script.pvf 和 gm/dist/data/data.db 都是可选文件
      - Script.pvf 缺失时，部署时需要自行准备 ./data/Script.pvf
      - data.db 缺失时，GM 镜像只打包空 data 目录，部署时需要自行准备 ./data/godofgm/data.db
 EOF
@@ -52,11 +55,12 @@ copy_any() {
 main() {
   local overlay_dir="${1:-$DEFAULT_OVERLAY_DIR}"
   local output_dir="${2:-$DEFAULT_OUTPUT_DIR}"
-  local tmp_root=""
   local dnf_root
   local gm_root
+  local gm_input_dir
   local include_pvf="no"
   local include_gm_db="no"
+  local include_db_overlay="no"
   local dnf_tar="$output_dir/shenji-overlay-dnf.tar.gz"
   local gm_tar="$output_dir/shenji-overlay-gm.tar.gz"
   local summary_file="$output_dir/shenji-overlay-summary.txt"
@@ -66,50 +70,50 @@ main() {
     exit 0
   fi
 
-  require_path "$overlay_dir/data/dp"
-  require_path "$overlay_dir/data/channel"
-  require_path "$overlay_dir/data/game"
-  require_path "$overlay_dir/data/run"
-  require_path "$overlay_dir/data/libfd.so"
-  require_path "$overlay_dir/gm/dist/godofgm"
-  require_path "$overlay_dir/gm/dist/config/server.json"
-  require_path "$overlay_dir/gm/dist/source"
-  require_path "$overlay_dir/gm/dist/web"
+  require_path "$overlay_dir/rootfs"
+  require_path "$overlay_dir/rootfs/home/template/init/init.sh"
+  require_path "$overlay_dir/rootfs/home/template/init/init_main_db.sh"
+  require_path "$overlay_dir/rootfs/home/template/init/init_server_group_db.sh"
+  require_path "$overlay_dir/rootfs/home/template/init/init_sql.tgz"
+  require_path "$overlay_dir/rootfs/home/template/init/df_game_r"
 
   mkdir -p "$output_dir"
   rm -f "$dnf_tar" "$gm_tar" "$summary_file"
 
-  tmp_root=$(mktemp -d)
-  trap '[[ -n "${tmp_root:-}" ]] && rm -rf "$tmp_root"' EXIT
+  TMP_ROOT=$(mktemp -d)
+  trap '[[ -n "${TMP_ROOT:-}" ]] && rm -rf "$TMP_ROOT"' EXIT
 
-  dnf_root="$tmp_root/dnf"
-  gm_root="$tmp_root/gm"
+  dnf_root="$TMP_ROOT/dnf"
+  gm_root="$TMP_ROOT/gm"
+  gm_input_dir="$overlay_dir/gm/dist"
 
-  mkdir -p "$dnf_root/data" "$dnf_root/optional" "$gm_root/data"
+  mkdir -p "$dnf_root" "$gm_root/data"
 
-  copy_any "$overlay_dir/data/dp" "$dnf_root/data/dp"
-  copy_any "$overlay_dir/data/channel" "$dnf_root/data/channel"
-  copy_any "$overlay_dir/data/game" "$dnf_root/data/game"
-  copy_any "$overlay_dir/data/run" "$dnf_root/data/run"
-  copy_any "$overlay_dir/data/libfd.so" "$dnf_root/data/libfd.so"
+  cp -a "$overlay_dir/rootfs"/. "$dnf_root"/
+  include_db_overlay="yes"
 
-  if copy_any "$overlay_dir/data/Script.pvf" "$dnf_root/data/Script.pvf"; then
+  if [[ -f "$overlay_dir/rootfs/home/template/init/Script.pvf" ]]; then
     include_pvf="yes"
   fi
 
-  if [[ -d "$overlay_dir/meta" ]]; then
-    copy_any "$overlay_dir/meta" "$dnf_root/meta"
-  fi
-  if [[ -f "$overlay_dir/optional/df_game_r.shenji" ]]; then
-    copy_any "$overlay_dir/optional/df_game_r.shenji" "$dnf_root/optional/df_game_r.shenji"
+  if [[ ! -d "$gm_input_dir" ]]; then
+    require_path "$overlay_dir/$GM_DIST_PAYLOAD_PATH"
+    mkdir -p "$TMP_ROOT/gm_input"
+    tar -xzf "$overlay_dir/$GM_DIST_PAYLOAD_PATH" -C "$TMP_ROOT/gm_input"
+    gm_input_dir="$TMP_ROOT/gm_input/gm/dist"
   fi
 
-  copy_any "$overlay_dir/gm/dist/config" "$gm_root/config"
-  copy_any "$overlay_dir/gm/dist/source" "$gm_root/source"
-  copy_any "$overlay_dir/gm/dist/web" "$gm_root/web"
-  copy_any "$overlay_dir/gm/dist/godofgm" "$gm_root/godofgm"
+  require_path "$gm_input_dir/godofgm"
+  require_path "$gm_input_dir/config/server.json"
+  require_path "$gm_input_dir/source"
+  require_path "$gm_input_dir/web"
 
-  if copy_any "$overlay_dir/gm/dist/data/data.db" "$gm_root/data/data.db"; then
+  copy_any "$gm_input_dir/config" "$gm_root/config"
+  copy_any "$gm_input_dir/source" "$gm_root/source"
+  copy_any "$gm_input_dir/web" "$gm_root/web"
+  copy_any "$gm_input_dir/godofgm" "$gm_root/godofgm"
+
+  if copy_any "$gm_input_dir/data/data.db" "$gm_root/data/data.db"; then
     include_gm_db="yes"
   else
     mkdir -p "$gm_root/data"
@@ -121,10 +125,12 @@ generated_at=$(date '+%Y-%m-%d %H:%M:%S %z')
 overlay_dir=$overlay_dir
 dnf_tar=$(basename "$dnf_tar")
 gm_tar=$(basename "$gm_tar")
+included_vmdk_db_overlay=$include_db_overlay
 included_script_pvf=$include_pvf
 included_gm_data_db=$include_gm_db
 
 Notes:
+- included_vmdk_db_overlay=yes 表示主镜像内已带 VMDK 生成的 rootfs overlay 和数据库初始化 SQL
 - included_script_pvf=no 时，部署时请手工准备 ./data/Script.pvf
 - included_gm_data_db=no 时，部署时请手工准备 ./data/godofgm/data.db
 EOF

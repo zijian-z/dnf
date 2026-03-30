@@ -7,11 +7,15 @@ REPO_ROOT=$(cd -- "$SCRIPT_DIR/../.." && pwd)
 MANIFEST_FILE="$SCRIPT_DIR/shenji_overlay.manifest"
 BASE_DP2_TGZ="$SCRIPT_DIR/dp2.tgz"
 DEFAULT_OUTPUT_DIR="$REPO_ROOT/deploy/dnf/docker-compose/shenji_overlay"
-COMPOSE_TEMPLATE="$REPO_ROOT/deploy/dnf/docker-compose/shenji_overlay/docker-compose.yaml"
+COMPOSE_PROJECT_TEMPLATE="$REPO_ROOT/deploy/dnf/docker-compose/shenji_overlay/docker-compose.project.yaml"
+COMPOSE_OVERRIDE_TEMPLATE="$REPO_ROOT/deploy/dnf/docker-compose/shenji_overlay/docker-compose.override.yaml"
+COMPOSE_WRAPPER_TEMPLATE="$REPO_ROOT/deploy/dnf/docker-compose/shenji_overlay/compose.sh"
 GODOFGM_START_TEMPLATE="$REPO_ROOT/deploy/dnf/docker-compose/shenji_overlay/gm-start.sh"
 GODOFGM_DOCKERFILE_TEMPLATE="$REPO_ROOT/deploy/dnf/docker-compose/shenji_overlay/Dockerfile.godofgm"
 GAME_START_TEMPLATE="$REPO_ROOT/deploy/dnf/docker-compose/shenji_overlay/game-start.sh.template"
 CHANNEL_START_TEMPLATE="$REPO_ROOT/deploy/dnf/docker-compose/shenji_overlay/channel-start.sh.template"
+DP_PAYLOAD_REL="payload/dp_overlay.tgz"
+GM_DIST_PAYLOAD_REL="payload/gm_dist.tgz"
 
 NBD_DEV=""
 MOUNT_DIR=""
@@ -25,7 +29,7 @@ usage() {
 说明:
   1. 输出目录默认是 deploy/dnf/docker-compose/shenji_overlay
   2. 脚本会以清风仓库自带 dp2.tgz 为基底，再覆盖神迹 VMDK 中确认必要的玩法文件
-  3. 默认不会直接启用神迹 df_game_r，只会放到 optional/ 目录备用
+  3. df_game_r 现已作为默认覆盖文件同步出来，后续会参与镜像 overlay 打包
 
 示例:
   ./sync_from_vmdk.sh /home/ubuntu/dnf/DNFServer.vmdk
@@ -198,8 +202,17 @@ copy_sidecar_files() {
 copy_support_files() {
   local out_dir="$1"
 
-  if [[ ! -f "$out_dir/docker-compose.yaml" ]]; then
-    cp "$COMPOSE_TEMPLATE" "$out_dir/docker-compose.yaml"
+  if [[ ! -f "$out_dir/docker-compose.project.yaml" ]]; then
+    cp "$COMPOSE_PROJECT_TEMPLATE" "$out_dir/docker-compose.project.yaml"
+  fi
+
+  if [[ ! -f "$out_dir/docker-compose.override.yaml" ]]; then
+    cp "$COMPOSE_OVERRIDE_TEMPLATE" "$out_dir/docker-compose.override.yaml"
+  fi
+
+  if [[ ! -f "$out_dir/compose.sh" ]]; then
+    cp "$COMPOSE_WRAPPER_TEMPLATE" "$out_dir/compose.sh"
+    chmod +x "$out_dir/compose.sh"
   fi
 
   if [[ ! -f "$out_dir/gm-start.sh" ]]; then
@@ -216,6 +229,28 @@ copy_support_files() {
   chmod +x "$out_dir/data/run/start_game.sh"
   cp "$CHANNEL_START_TEMPLATE" "$out_dir/data/run/start_channel.sh"
   chmod +x "$out_dir/data/run/start_channel.sh"
+}
+
+pack_payloads() {
+  local out_dir="$1"
+
+  mkdir -p "$out_dir/payload"
+
+  if [[ -d "$out_dir/data/dp" ]]; then
+    (
+      cd "$out_dir"
+      tar -czf "$DP_PAYLOAD_REL" data/dp
+    )
+    rm -rf "$out_dir/data/dp"
+  fi
+
+  if [[ -d "$out_dir/gm/dist" ]]; then
+    (
+      cd "$out_dir"
+      tar -czf "$GM_DIST_PAYLOAD_REL" gm/dist
+    )
+    rm -rf "$out_dir/gm/dist"
+  fi
 }
 
 write_metadata() {
@@ -240,11 +275,11 @@ EOF
     echo
     echo "# 默认策略"
     echo "1. 已启用神迹 Script.pvf 覆盖"
-    echo "2. 已启用神迹 dp2 脚本覆盖"
-    echo "3. 已启用神迹 run 语义提取版 start_game.sh 与 start_channel.sh"
-    echo "4. 已同步神迹 channel_amd64 与双份 channel_info"
-    echo "5. 已同步网页 GM 运行目录到 gm/dist"
-    echo "6. 未默认启用神迹 df_game_r，文件保存在 optional/df_game_r.shenji"
+    echo "2. 已启用神迹 df_game_r 覆盖"
+    echo "3. 已启用神迹 dp2 脚本覆盖"
+    echo "4. 已启用神迹 run 语义提取版 start_game.sh 与 start_channel.sh"
+    echo "5. 已同步神迹 channel_amd64 与双份 channel_info"
+    echo "6. 已同步网页 GM 与 dp 覆盖，并压缩为 payload/*.tgz"
     echo "7. 已保存 libfd.so 的源码和原始 run 脚本以便后续比对更新"
   } >"$out_dir/meta/recommended-env.txt"
 
@@ -252,6 +287,7 @@ EOF
     cd "$out_dir"
     sha256sum \
       data/Script.pvf \
+      data/df_game_r \
       data/libfd.so \
       data/game/channel_info/channel_info.etc \
       data/game/channel_info/version \
@@ -266,7 +302,6 @@ EOF
       gm/dist/data/data.db \
       data/run/start_game.sh \
       data/run/start_channel.sh \
-      optional/df_game_r.shenji \
       > meta/checksums.txt
   )
 }
@@ -303,6 +338,7 @@ main() {
   copy_sidecar_files "$source_root" "$out_dir"
   copy_support_files "$out_dir"
   write_metadata "$source_input" "$source_root" "$out_dir"
+  pack_payloads "$out_dir"
 
   cat <<EOF
 同步完成:
@@ -310,15 +346,15 @@ main() {
 
 已生成:
   $out_dir/data/Script.pvf
-  $out_dir/data/dp
-  $out_dir/gm/dist
-  $out_dir/optional/df_game_r.shenji
+  $out_dir/data/df_game_r
+  $out_dir/payload/dp_overlay.tgz
+  $out_dir/payload/gm_dist.tgz
   $out_dir/meta
 
 建议下一步:
-  1. 检查 $out_dir/meta/recommended-env.txt
-  2. 进入 $out_dir 执行 docker compose up -d --build
-  3. 只有在 Script.pvf + 神迹 dp2 仍无法跑通时，才考虑启用 optional/df_game_r.shenji
+  1. 执行 plugin/dp2/build_db_overlay.sh <VMDK导出的全库SQL> $out_dir
+  2. 执行 plugin/dp2/package_shenji_overlay.sh $out_dir
+  3. 进入 $out_dir 执行 ./compose.sh up -d --build
 EOF
 }
 

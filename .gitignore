@@ -1,0 +1,3 @@
+deploy/dnf/docker-compose/shenji_overlay/data/Script.pvf
+deploy/dnf/docker-compose/shenji_overlay/rootfs/home/template/init/Script.pvf
+.artifacts/

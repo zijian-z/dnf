@@ -53,7 +53,7 @@ if [ -n "${old_pid}" ]; then
 fi
 rm -rf "pid/${channel_name}.pid"
 
-preload_chain="/dp2/libhook.so"
+preload_chain="/usr/lib/libglibc_compat.so:/dp2/libhook.so"
 
 # 神迹原始 run 语义: 游戏进程并不是挂 frida.so，而是挂 libfd.so。
 if [ -f /data/libfd.so ]; then

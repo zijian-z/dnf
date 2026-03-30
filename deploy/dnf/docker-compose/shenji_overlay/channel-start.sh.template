@@ -51,7 +51,13 @@ if [ -f /data/channel/channel_amd64 ]; then
   exec ./channel_amd64 channel start
 fi
 
+if [ -f /home/neople/channel/channel_amd64 ]; then
+  chmod 777 /home/neople/channel/channel_amd64
+  echo "starting baked-in Shenji channel_amd64"
+  exec ./channel_amd64 channel start
+fi
+
 echo "channel_amd64 missing, fallback to Qingfeng df_channel_r"
-LD_PRELOAD=/home/template/init/channel_hook.so:/dp2/libhook.so ./df_channel_r channel start
+LD_PRELOAD=/usr/lib/libglibc_compat.so:/home/template/init/channel_hook.so:/dp2/libhook.so ./df_channel_r channel start
 sleep 2
 cat pid/*.pid | xargs -n1 -I{} tail --pid={} -f /dev/null
