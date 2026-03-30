@@ -187,15 +187,14 @@ copy_sidecar_files() {
   local source_root="$1"
   local out_dir="$2"
 
-  rm -rf "$out_dir/gm" "$out_dir/optional/libfd_source" "$out_dir/meta/source_scripts"
-  mkdir -p "$out_dir/gm" "$out_dir/optional" "$out_dir/meta/source_scripts"
+  rm -rf "$out_dir/gm" "$out_dir/meta/source_scripts"
+  mkdir -p "$out_dir/gm" "$out_dir/meta/source_scripts"
 
   sudo cp -a "$source_root/root/dist" "$out_dir/gm/dist"
-  sudo cp -a "$source_root/root/server" "$out_dir/optional/libfd_source"
   sudo cp -a "$source_root/root/run" "$out_dir/meta/source_scripts/run"
   sudo cp -a "$source_root/root/run_nopvp" "$out_dir/meta/source_scripts/run_nopvp"
   sudo cp -a "$source_root/root/stop" "$out_dir/meta/source_scripts/stop"
-  sudo chown -R "$(id -u):$(id -g)" "$out_dir/gm" "$out_dir/optional/libfd_source"
+  sudo chown -R "$(id -u):$(id -g)" "$out_dir/gm"
   sudo chown -R "$(id -u):$(id -g)" "$out_dir/meta/source_scripts"
 }
 
@@ -280,7 +279,7 @@ EOF
     echo "4. 已启用神迹 run 语义提取版 start_game.sh 与 start_channel.sh"
     echo "5. 已同步神迹 channel_amd64 与双份 channel_info"
     echo "6. 已同步网页 GM 与 dp 覆盖，并压缩为 payload/*.tgz"
-    echo "7. 已保存 libfd.so 的源码和原始 run 脚本以便后续比对更新"
+    echo "7. 已保留运行所需的 libfd.so，并保存原始 run 脚本以便后续比对更新"
   } >"$out_dir/meta/recommended-env.txt"
 
   (

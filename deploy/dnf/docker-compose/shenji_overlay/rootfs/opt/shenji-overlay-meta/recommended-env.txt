@@ -11,4 +11,4 @@ OPEN_CHANNEL=11
 4. 已同步神迹 channel_amd64 与双份 channel_info
 5. 已同步网页 GM 运行目录到 gm/dist
 6. 未默认启用神迹 df_game_r，文件保存在 optional/df_game_r.shenji
-7. 已保存 libfd.so 的源码和原始 run 脚本以便后续比对更新
+7. 已保留运行所需的 libfd.so，并保存原始 run 脚本以便后续比对更新

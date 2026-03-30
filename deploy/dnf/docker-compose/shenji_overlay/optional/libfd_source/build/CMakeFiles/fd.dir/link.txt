@@ -1,1 +1,0 @@
-/usr/bin/c++  -fPIC  -std=c++0x -fvisibility=hidden -m32   -Wl,--no-as-needed -shared -Wl,-soname,libfd.so -o /home/neople/game/libfd.so CMakeFiles/fd.dir/server.cpp.o CMakeFiles/fd.dir/mysql.cpp.o  -L/root/server/lib -Wl,-Bstatic -lfrida-gum -Wl,-Bdynamic -lpthread -ldl -Wl,-rpath,/root/server/lib 
