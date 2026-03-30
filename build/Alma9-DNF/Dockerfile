@@ -101,7 +101,7 @@ RUN for bin in mysql mysqld_safe mysqladmin mysqldump my_print_defaults; do \
 ARG GATE_VERSION="0.3.0"
 RUN dnf install -y --setopt=install_weak_deps=False wget tar gzip \
     && cd /tmp \
-    && wget -q https://raw.githubusercontent.com/1995chen/dnf_util/refs/heads/main/common_pkgs/lib.tgz \
+    && wget -q https://raw.githubusercontent.com/llnut/dnf_util/refs/heads/main/common_pkgs/lib.tgz \
     && tar -zxf lib.tgz \
     && rm -f /tmp/libGeoIP* \
     && (mv /tmp/*.so /usr/lib/ 2>/dev/null; true) \

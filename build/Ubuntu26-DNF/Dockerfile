@@ -102,7 +102,7 @@ RUN for bin in mysql mysqld_safe mysqladmin mysqldump my_print_defaults; do \
 ARG GATE_VERSION="0.3.0"
 RUN apt-get update && apt-get install -y --no-install-recommends wget ca-certificates \
     && cd /tmp \
-    && wget -q https://raw.githubusercontent.com/1995chen/dnf_util/refs/heads/main/common_pkgs/lib.tgz \
+    && wget -q https://raw.githubusercontent.com/llnut/dnf_util/refs/heads/main/common_pkgs/lib.tgz \
     && tar -zxf lib.tgz \
     && rm -f /tmp/libGeoIP* \
     && (mv /tmp/*.so /lib/i386-linux-gnu/ 2>/dev/null; true) \
