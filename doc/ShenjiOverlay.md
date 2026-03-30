@@ -217,6 +217,70 @@ cd deploy/dnf/docker-compose/shenji_overlay
 - 清风更新时，只要它的基础运行时兼容，这套 overlay 可以继续复用
 - VMDK 更新时，只要重新生成 payload、DB overlay 和工件即可
 
+## 外部卷覆盖规则
+
+当前方案仍然保留了清风“外部 `data/` 目录优先”的思路，但不是所有文件都采用同一策略。
+
+### 1. 缺失时播种，不覆盖已有卷文件
+
+这一类目前只有:
+
+- `./data/Script.pvf`
+
+行为:
+
+- 如果卷里没有 `./data/Script.pvf`，镜像首启会从 overlay 播种一份
+- 如果卷里已经有 `./data/Script.pvf`，镜像不会覆盖
+
+也就是说:
+
+- `Script.pvf` 仍然完全支持手工放到外部卷后长期替换
+
+### 2. 运行时优先读取外部卷
+
+这一类当前包括:
+
+- `./data/libfd.so`
+- `./data/game/channel_info/*`
+- `./data/channel/channel_info/*`
+- `./data/channel/channel_amd64`
+
+行为:
+
+- 启动脚本会优先读取 `./data` 里的这些文件
+- 如果外部卷中存在，就在启动时覆盖到容器运行目录
+- 如果外部卷中不存在，再退回镜像内置版本
+
+也就是说:
+
+- 这几类文件依然适合通过外部卷热替换
+
+### 3. 当前会被镜像 overlay 强制刷新
+
+这一类当前包括:
+
+- `./data/df_game_r`
+- `./data/dp/*`
+- `./data/run/*.sh`
+
+行为:
+
+- 容器初始化时会把镜像中的版本直接刷新到 `./data`
+- 因此如果你手工修改了卷里的同名文件，重启容器后会被镜像版本覆盖
+
+这样做的原因是当前方案已经固定为“以 VMDK 为准”，先保证:
+
+- `df_game_r`
+- `dp2`
+- `run` 语义
+
+三者始终与 VMDK 基线一致。
+
+如果后续要进一步贴近清风原始习惯，也可以再改成:
+
+- 仅缺失时播种
+- 或增加环境变量控制是否强制刷新
+
 ## IP 与启动脚本策略
 
 当前 overlay 启动脚本已经按下面原则处理:
@@ -244,6 +308,31 @@ OPEN_CHANNEL=11
 - 仓库中的 `deploy/dnf/docker-compose/shenji_overlay/data/Script.pvf` 已加入 `.gitignore`
 - 是否被打入工件，以 `shenji-overlay-summary.txt` 为准
 
+## VMDK 关键 SO 分析
+
+VMDK 中几个关键 `.so` 的职责已经做过一轮静态分析，结论是:
+
+- `libhook.so`
+  实际来自神迹 `libdp2pre.so`，是预加载引导器
+- `libdp2.so`
+  是 DP2 核心装载器
+- `libdp2game.so`
+  是面向 `df_game_r.lua` 的游戏插件桥接层
+- `frida.so`
+  是通用 Frida Gadget，并不是神迹自写业务补丁
+- `libfd.so`
+  才是直接改 `df_game_r` 行为的核心补丁模块
+
+其中:
+
+- 当前神迹实际优先挂的是 `libfd.so`
+- `frida.so` 只作为回退
+- `libfd.so` 还会在数据库中创建 `frida.charac_ex`
+
+详细说明见:
+
+- `doc/ShenjiSoAnalysis.md`
+
 ## 常用产物
 
 后续排查时最常看的文件:
@@ -253,6 +342,7 @@ OPEN_CHANNEL=11
 - `deploy/dnf/docker-compose/shenji_overlay/meta/db_overlay_summary.txt`
 - `deploy/dnf/docker-compose/shenji_overlay/meta/checksums.txt`
 - `.artifacts/shenji-overlay-summary.txt`
+- `doc/ShenjiSoAnalysis.md`
 
 ## 更新建议
 

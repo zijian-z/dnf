@@ -124,6 +124,21 @@ deploy/dnf/docker-compose/shenji_overlay/meta/db_compare/
 - 将 `dp` 和 `gm/dist` 压缩为 `payload/*.tgz`
 - 需要打包 rootfs 时再自动解压
 
+## 文档
+
+主说明见:
+
+- `doc/ShenjiOverlay.md`
+
+其中还额外补充了两类常见问题:
+
+- 哪些文件仍然支持外部卷优先覆盖
+- VMDK 中关键 `.so` 的职责分析
+
+详细的 `.so` 分析见:
+
+- `doc/ShenjiSoAnalysis.md`
+
 ## 手工 DP 使用方式
 
 如果你只是单独使用本目录原始 DP 包，可以继续按老方式解压 `dp2.tgz` 到清风的 `data/dp/` 目录。
