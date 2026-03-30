@@ -54,6 +54,10 @@
 - 生成新的 `rootfs/home/template/init/init_sql.tgz`
 - 输出 `meta/db_compare/*`
 
+说明:
+
+- `meta/db_compare/*`、`meta/db_overlay_summary.txt` 这类分析报告默认只保留在本地，不再提交到 GitHub
+
 核心输出:
 
 - `meta/db_compare/schema_summary.txt`

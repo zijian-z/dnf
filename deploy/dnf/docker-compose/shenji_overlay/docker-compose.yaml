@@ -53,6 +53,12 @@ services:
     depends_on:
       - dnf-1
     restart: always
+    environment:
+      - TZ=${TZ:-Asia/Shanghai}
+      - GODOFGM_ADMIN_USERNAME=${GODOFGM_ADMIN_USERNAME:-}
+      - GODOFGM_ADMIN_PASSWORD=${GODOFGM_ADMIN_PASSWORD:-}
+      - GM_ACCOUNT=${GM_ACCOUNT:-}
+      - GM_PASSWORD=${GM_PASSWORD:-}
     volumes:
       - ./data/godofgm:/opt/godofgm/data
       - ./log/godofgm:/opt/godofgm/log

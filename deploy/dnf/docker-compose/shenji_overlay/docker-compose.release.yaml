@@ -1,7 +1,7 @@
 services:
 
   dnf-1:
-    image: ${DNF_IMAGE:?set DNF_IMAGE in .env.release}
+    image: ${DNF_IMAGE:?set DNF_IMAGE in .env}
     hostname: dnf-1
     environment:
       - TZ=${TZ:-Asia/Shanghai}
@@ -9,7 +9,7 @@ services:
       - SERVER_GROUP_DB=${SERVER_GROUP_DB:-cain}
       - DNF_DB_ROOT_PASSWORD=${DNF_DB_ROOT_PASSWORD:-88888888}
       - DNF_DB_GAME_PASSWORD=${DNF_DB_GAME_PASSWORD:-uu5!^%jg}
-      - GATE_AES_KEY=${GATE_AES_KEY:?set GATE_AES_KEY in .env.release}
+      - GATE_AES_KEY=${GATE_AES_KEY:?set GATE_AES_KEY in .env}
       - WEB_USER=${WEB_USER:-root}
       - WEB_PASS=${WEB_PASS:-123456}
       - PUBLIC_IP=${PUBLIC_IP:-}
@@ -39,11 +39,17 @@ services:
       - ./log:/home/neople/game/log
 
   godofgm:
-    image: ${GM_IMAGE:?set GM_IMAGE in .env.release}
+    image: ${GM_IMAGE:?set GM_IMAGE in .env}
     network_mode: "service:dnf-1"
     depends_on:
       - dnf-1
     restart: always
+    environment:
+      - TZ=${TZ:-Asia/Shanghai}
+      - GODOFGM_ADMIN_USERNAME=${GODOFGM_ADMIN_USERNAME:-}
+      - GODOFGM_ADMIN_PASSWORD=${GODOFGM_ADMIN_PASSWORD:-}
+      - GM_ACCOUNT=${GM_ACCOUNT:-}
+      - GM_PASSWORD=${GM_PASSWORD:-}
     volumes:
       - ./data/godofgm:/opt/godofgm/data
       - ./log/godofgm:/opt/godofgm/log

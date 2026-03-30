@@ -18,9 +18,9 @@ usage() {
   1. 默认从 deploy/dnf/docker-compose/shenji_overlay 打包
   2. 默认输出到 .artifacts/
   3. DNF 主服务现在打包的是 rootfs overlay，而不是旧的 data 目录快照
-  4. Script.pvf 和 gm/dist/data/data.db 都是可选文件
-     - Script.pvf 缺失时，部署时需要自行准备 ./data/Script.pvf
-     - data.db 缺失时，GM 镜像只打包空 data 目录，部署时需要自行准备 ./data/godofgm/data.db
+  4. Script.pvf 和 gm/dist/data/data.db 是否内置到镜像取决于当前打包输入
+     - Script.pvf 是运行所需文件，打包时缺失则部署时需要自行准备 ./data/Script.pvf
+     - data.db 是 GodOfGM 运行所需文件，打包时缺失则部署时需要自行准备 ./data/godofgm/data.db
 EOF
 }
 
@@ -60,7 +60,6 @@ main() {
   local gm_input_dir
   local include_pvf="no"
   local include_gm_db="no"
-  local include_db_overlay="no"
   local dnf_tar="$output_dir/shenji-overlay-dnf.tar.gz"
   local gm_tar="$output_dir/shenji-overlay-gm.tar.gz"
   local summary_file="$output_dir/shenji-overlay-summary.txt"
@@ -90,7 +89,6 @@ main() {
   mkdir -p "$dnf_root" "$gm_root/data"
 
   cp -a "$overlay_dir/rootfs"/. "$dnf_root"/
-  include_db_overlay="yes"
 
   if [[ -f "$overlay_dir/rootfs/home/template/init/Script.pvf" ]]; then
     include_pvf="yes"
@@ -125,15 +123,20 @@ generated_at=$(date '+%Y-%m-%d %H:%M:%S %z')
 overlay_dir=$overlay_dir
 dnf_tar=$(basename "$dnf_tar")
 gm_tar=$(basename "$gm_tar")
-included_vmdk_db_overlay=$include_db_overlay
-included_script_pvf=$include_pvf
-included_gm_data_db=$include_gm_db
 
 Notes:
-- included_vmdk_db_overlay=yes 表示主镜像内已带 VMDK 生成的 rootfs overlay 和数据库初始化 SQL
-- included_script_pvf=no 时，部署时请手工准备 ./data/Script.pvf
-- included_gm_data_db=no 时，部署时请手工准备 ./data/godofgm/data.db
+- DNF 主镜像已带 VMDK 生成的 rootfs overlay 和数据库初始化 SQL
+- 外部 ./data/Script.pvf 优先于镜像内种子；需要替换时直接覆盖外部卷中的同名文件
+- 外部 ./data/godofgm/data.db 优先于镜像内种子；需要替换时直接覆盖外部卷中的同名文件
 EOF
+
+  if [[ "$include_pvf" != "yes" ]]; then
+    echo "- 当前打包输入未内置 Script.pvf，首次启动前请自行准备 ./data/Script.pvf" >>"$summary_file"
+  fi
+
+  if [[ "$include_gm_db" != "yes" ]]; then
+    echo "- 当前打包输入未内置 GodOfGM data.db，首次启动前请自行准备 ./data/godofgm/data.db" >>"$summary_file"
+  fi
 
   (
     cd "$dnf_root"

@@ -5,7 +5,8 @@ WORKDIR /opt/godofgm
 COPY gm/dist/ /opt/godofgm-init/
 COPY gm-start.sh /usr/local/bin/gm-start.sh
 
-RUN mkdir -p /opt/godofgm /opt/godofgm-init \
+RUN apk add --no-cache apache2-utils sqlite \
+    && mkdir -p /opt/godofgm /opt/godofgm-init \
     && cp -a /opt/godofgm-init/. /opt/godofgm/ \
     && chmod +x /usr/local/bin/gm-start.sh /opt/godofgm/godofgm
 

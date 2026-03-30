@@ -170,6 +170,10 @@ plugin/dp2/build_db_overlay.sh /path/to/vmdk_latest_all.sql.gz
 - 将最终导入 SQL 改写为基于 VMDK 的 `init_sql.tgz`
 - 组装 `rootfs/`
 
+说明:
+
+- `meta/db_compare/*`、`meta/db_overlay_summary.txt` 等分析报告默认只保留在本地，不再提交到 GitHub
+
 #### 3. 打包构建工件
 
 ```bash
@@ -306,7 +310,7 @@ OPEN_CHANNEL=11
 
 - `Script.pvf` 仍按清风风格放在 `./data/Script.pvf`
 - 仓库中的 `deploy/dnf/docker-compose/shenji_overlay/data/Script.pvf` 已加入 `.gitignore`
-- 是否被打入工件，以 `shenji-overlay-summary.txt` 为准
+- 运行时外部卷中的 `./data/Script.pvf` 优先于镜像内种子，替换时直接覆盖这个文件即可
 
 ## VMDK 关键 SO 分析
 
@@ -343,6 +347,8 @@ VMDK 中几个关键 `.so` 的职责已经做过一轮静态分析，结论是:
 - `deploy/dnf/docker-compose/shenji_overlay/meta/checksums.txt`
 - `.artifacts/shenji-overlay-summary.txt`
 - `doc/ShenjiSoAnalysis.md`
+
+其中 `meta/db_compare/*`、`meta/db_overlay_summary.txt` 属于本地产物，默认不会提交到 GitHub。
 
 ## 更新建议
 

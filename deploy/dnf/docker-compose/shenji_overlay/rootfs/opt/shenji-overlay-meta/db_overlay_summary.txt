@@ -1,8 +1,0 @@
-generated_at=2026-03-30 16:07:40 +0800
-dump_path=/home/ubuntu/dnf/tmp/db_dumps/vmdk_latest_all.sql.gz
-schema_compare=/home/ubuntu/dnf/dnf/deploy/dnf/docker-compose/shenji_overlay/meta/db_compare/schema_summary.txt
-qf_only_tables=/home/ubuntu/dnf/dnf/deploy/dnf/docker-compose/shenji_overlay/meta/db_compare/qf_only_tables.txt
-vmdk_only_tables=/home/ubuntu/dnf/dnf/deploy/dnf/docker-compose/shenji_overlay/meta/db_compare/vmdk_only_tables.txt
-table_structure_diff=/home/ubuntu/dnf/dnf/deploy/dnf/docker-compose/shenji_overlay/meta/db_compare/table_structure_diff.txt
-rootfs_dir=/home/ubuntu/dnf/dnf/deploy/dnf/docker-compose/shenji_overlay/rootfs
-init_sql_tgz=/home/ubuntu/dnf/dnf/deploy/dnf/docker-compose/shenji_overlay/rootfs/home/template/init/init_sql.tgz

@@ -50,32 +50,24 @@ GitHub Release 通常还会带三个附件:
 
 其中最重要的是:
 
+- `shenji-overlay-dnf.tar.gz`
+- `shenji-overlay-gm.tar.gz`
 - `shenji-overlay-summary.txt`
 
-重点看三项:
+其中 `shenji-overlay-summary.txt` 只是构建摘要。
+部署时不用专门理解里面的 `included_*` 之类构建标记。
 
-```text
-included_vmdk_db_overlay=<yes|no>
-included_script_pvf=<yes|no>
-included_gm_data_db=<yes|no>
-```
+你只需要记住:
 
-含义:
+- 外部卷里的 `./data/Script.pvf` 优先于镜像内同名种子
+- 外部卷里的 `./data/godofgm/data.db` 优先于镜像内同名种子
+- 想替换内容时，直接替换外部卷中的文件即可
 
-- `included_vmdk_db_overlay=yes`
-  主镜像已经内置 VMDK 生成的数据库 overlay
-- `included_script_pvf=yes`
-  镜像内带默认 `Script.pvf` 种子
-- `included_gm_data_db=yes`
-  GM 镜像内带默认 `data.db` 种子
+## 参考文件
 
-推荐看到的结果是:
-
-```text
-included_vmdk_db_overlay=yes
-included_script_pvf=yes
-included_gm_data_db=yes
-```
+- [deploy/dnf/docker-compose/shenji_overlay/docker-compose.release.yaml](../deploy/dnf/docker-compose/shenji_overlay/docker-compose.release.yaml)
+- [deploy/dnf/docker-compose/shenji_overlay/.env.example](../deploy/dnf/docker-compose/shenji_overlay/.env.example)
+- [plugin/dp2/update_from_vmdk.sh](../plugin/dp2/update_from_vmdk.sh)
 
 ## 部署目录准备
 
@@ -87,17 +79,17 @@ mkdir -p data data/godofgm mysql log log/godofgm
 
 从仓库复制下面两个文件到当前目录:
 
-- `deploy/dnf/docker-compose/shenji_overlay/docker-compose.release.yaml`
-- `deploy/dnf/docker-compose/shenji_overlay/.env.release.example`
+- [deploy/dnf/docker-compose/shenji_overlay/docker-compose.release.yaml](../deploy/dnf/docker-compose/shenji_overlay/docker-compose.release.yaml)
+- [deploy/dnf/docker-compose/shenji_overlay/.env.example](../deploy/dnf/docker-compose/shenji_overlay/.env.example)
 
 改名:
 
 ```bash
 cp docker-compose.release.yaml docker-compose.yaml
-cp .env.release.example .env.release
+cp .env.example .env
 ```
 
-## 填写 `.env.release`
+## 填写 `.env`
 
 至少改这些:
 
@@ -108,6 +100,7 @@ DNF_DB_ROOT_PASSWORD=改成你自己的密码
 GATE_AES_KEY=替换成64位十六进制密钥
 PUBLIC_IP=你的公网IP或局域网IP
 AUTO_PUBLIC_IP=false
+GODOFGM_ADMIN_PASSWORD=改成强密码
 ```
 
 固定约束保持不变:
@@ -117,6 +110,12 @@ SERVER_GROUP=3
 SERVER_GROUP_DB=cain
 DNF_DB_GAME_PASSWORD=uu5!^%jg
 OPEN_CHANNEL=11
+```
+
+可选但推荐显式填写:
+
+```dotenv
+GODOFGM_ADMIN_USERNAME=admin
 ```
 
 生成密钥示例:
@@ -129,12 +128,15 @@ openssl rand -hex 32
 
 ### 1. `Script.pvf`
 
-如果 `shenji-overlay-summary.txt` 中:
+运行时最终生效的是外部卷里的:
 
-- `included_script_pvf=yes`
-  可以直接启动，缺失时会自动播种到 `./data/Script.pvf`
-- `included_script_pvf=no`
-  需要手工准备 `./data/Script.pvf`
+```text
+./data/Script.pvf
+```
+
+如果这个文件已经存在，会直接使用它。
+如果不存在，镜像会尝试用内置种子自动播种；
+如果当前镜像不带种子，就手工把自己的 `Script.pvf` 放到这个路径。
 
 手工放置示例:
 
@@ -144,18 +146,46 @@ cp /绝对路径/Script.pvf ./data/Script.pvf
 
 ### 2. `data/godofgm/data.db`
 
-如果 `shenji-overlay-summary.txt` 中:
+`data.db` 不是“可有可无的参考文件”。
+对 GodOfGM 来说，它是运行时必需文件。
+运行时最终生效的是外部卷里的:
 
-- `included_gm_data_db=yes`
-  可以直接启动，缺失时会自动播种到 `./data/godofgm/data.db`
-- `included_gm_data_db=no`
-  需要手工准备 `./data/godofgm/data.db`
+```text
+./data/godofgm/data.db
+```
+
+如果这个文件已经存在，会直接使用它。
+如果不存在，镜像会尝试用内置种子自动播种；
+如果当前镜像不带种子，就手工把自己的 `data.db` 放到这个路径。
 
 手工放置示例:
 
 ```bash
 cp /绝对路径/data.db ./data/godofgm/data.db
 ```
+
+## GodOfGM 超级管理员
+
+当前 GodOfGM 种子库里的默认超级管理员是:
+
+```text
+username=admin
+password=123
+```
+
+发布版启动脚本现在支持在容器启动时从环境变量同步管理员账号密码到 `./data/godofgm/data.db`:
+
+- `GODOFGM_ADMIN_USERNAME`
+- `GODOFGM_ADMIN_PASSWORD`
+
+兼容旧变量名:
+
+- `GM_ACCOUNT`
+- `GM_PASSWORD`
+
+如果你已经在 `.env` 中设置了 `GODOFGM_ADMIN_PASSWORD`，首次启动时会自动把默认 `admin / 123` 改掉。
+如果未设置，容器日志会给出默认密码警告。
+如果镜像种子库里还带了其他预置用户，首次播种 `data.db` 时也会只保留同步后的超级管理员账号，额外种子用户会被清掉。
 
 ## 启动
 
@@ -168,20 +198,20 @@ echo '<ghcr_token>' | docker login ghcr.io -u <github_user> --password-stdin
 启动:
 
 ```bash
-docker compose --env-file .env.release up -d
+docker compose up -d
 ```
 
 查看状态:
 
 ```bash
-docker compose --env-file .env.release ps
+docker compose ps
 ```
 
 查看日志:
 
 ```bash
-docker compose --env-file .env.release logs -f dnf-1
-docker compose --env-file .env.release logs -f godofgm
+docker compose logs -f dnf-1
+docker compose logs -f godofgm
 ```
 
 ## 启动后确认
@@ -242,7 +272,7 @@ http://<PUBLIC_IP>:8088
 本地重新执行:
 
 ```bash
-plugin/dp2/update_from_vmdk.sh /path/to/DNFServer.vmdk /path/to/vmdk_latest_all.sql.gz
+[plugin/dp2/update_from_vmdk.sh](../plugin/dp2/update_from_vmdk.sh) /path/to/DNFServer.vmdk /path/to/vmdk_latest_all.sql.gz
 ```
 
 重新产物后再走发布流程即可。
