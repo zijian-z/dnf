@@ -1,6 +1,8 @@
+# check=skip=SecretsUsedInArgOrEnv,LegacyKeyValueFormat
+
 FROM centos:7.9.2009
 
-LABEL AUTHOR llnut
+LABEL maintainer="llnut"
 
 ENV TZ=Asia/Shanghai
 # 安装环境

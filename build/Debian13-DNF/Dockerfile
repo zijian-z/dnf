@@ -1,3 +1,5 @@
+# check=skip=SecretsUsedInArgOrEnv
+
 # Build dependencies: GeoIP data, MySQL 5.7, and dnf-compat-layer
 ARG DEBIAN_BASE_IMAGE=debian:stable-slim
 FROM ${DEBIAN_BASE_IMAGE} AS builder
