@@ -87,6 +87,28 @@ find_free_nbd() {
   return 1
 }
 
+ensure_vmdk_dependencies() {
+  local cmd
+  local -a missing=()
+
+  for cmd in qemu-nbd lsblk blkid pvscan pvs lvs vgscan vgchange; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+      missing+=("$cmd")
+    fi
+  done
+
+  if ! command -v lvmconfig >/dev/null 2>&1; then
+    missing+=("lvmconfig")
+  fi
+
+  if (( ${#missing[@]} > 0 )); then
+    echo "缺少 VMDK 挂载所需命令: ${missing[*]}" >&2
+    echo "当前镜像的主数据分区是 LVM2_member，必须先安装 lvm2 和 qemu-utils" >&2
+    echo "Ubuntu/Debian 可执行: sudo apt update && sudo apt install -y lvm2 qemu-utils" >&2
+    exit 1
+  fi
+}
+
 prepare_lvm_common_args() {
   local filter_entries
 
@@ -298,10 +320,7 @@ attach_vmdk() {
   local vg_name
   local -a candidate_reports=()
 
-  command -v qemu-nbd >/dev/null || {
-    echo "缺少 qemu-nbd，请先安装 qemu-utils" >&2
-    exit 1
-  }
+  ensure_vmdk_dependencies
 
   sudo modprobe nbd max_part=16
   NBD_DEV=$(find_free_nbd) || {
