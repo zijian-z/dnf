@@ -20,6 +20,14 @@ GM_DIST_PAYLOAD_REL="payload/gm_dist.tgz"
 NBD_DEV=""
 MOUNT_DIR=""
 VG_NAME=""
+SOURCE_ROOT_MARKER_MIN_SCORE=2
+SOURCE_ROOT_REQUIRED_FILES=(
+  "home/neople/game/Script.pvf"
+  "home/neople/game/df_game_r"
+  "dp2/df_game_r.lua"
+  "dp2/df_game_r.js"
+  "dp2/libdp2pre.so"
+)
 
 usage() {
   cat <<'EOF'
@@ -71,10 +79,68 @@ find_free_nbd() {
   return 1
 }
 
+count_source_root_markers() {
+  local root_dir="$1"
+  local rel matches=0
+
+  for rel in "${SOURCE_ROOT_REQUIRED_FILES[@]}"; do
+    if [[ -f "$root_dir/$rel" ]]; then
+      ((matches += 1))
+    fi
+  done
+
+  echo "$matches"
+}
+
+mount_candidate_readonly() {
+  local candidate="$1"
+  local fstype="$2"
+
+  case "$fstype" in
+    xfs)
+      sudo mount -o ro,norecovery,nouuid "$candidate" "$MOUNT_DIR" 2>/dev/null ||
+        sudo mount -o ro,nouuid "$candidate" "$MOUNT_DIR" 2>/dev/null ||
+        sudo mount -o ro "$candidate" "$MOUNT_DIR"
+      ;;
+    *)
+      sudo mount -o ro "$candidate" "$MOUNT_DIR"
+      ;;
+  esac
+}
+
+list_source_root_candidates() {
+  {
+    lsblk -nrpo NAME,FSTYPE,TYPE,SIZE "$NBD_DEV" |
+      awk '($3 == "part" || $3 == "lvm") && NF >= 4 { print $1, $2, $4 }'
+    if [[ -n "$VG_NAME" ]]; then
+      while read -r lv_path lv_size; do
+        local lv_fstype=""
+        [[ -n "$lv_path" && -n "$lv_size" ]] || continue
+        lv_fstype=$(lsblk -nrpo FSTYPE "$lv_path" 2>/dev/null | awk 'NF {print $1; exit}')
+        [[ -n "$lv_fstype" ]] || continue
+        echo "$lv_path $lv_fstype $lv_size"
+      done < <(sudo lvs --noheadings -o lv_path,lv_size "$VG_NAME" 2>/dev/null)
+    else
+      while read -r lv_path lv_size; do
+        local lv_fstype=""
+        [[ -n "$lv_path" && -n "$lv_size" ]] || continue
+        lv_fstype=$(lsblk -nrpo FSTYPE "$lv_path" 2>/dev/null | awk 'NF {print $1; exit}')
+        [[ -n "$lv_fstype" ]] || continue
+        echo "$lv_path $lv_fstype $lv_size"
+      done < <(sudo lvs --noheadings -o lv_path,lv_size 2>/dev/null)
+    fi
+  } |
+    awk '$2 ~ /^(ext2|ext3|ext4|xfs|btrfs)$/ { print $1, $2, $3 }' |
+    awk '!seen[$1]++' |
+    sort -k3h -r
+}
+
 attach_vmdk() {
   local vmdk_path="$1"
-  local candidate root_dev=""
+  local candidate candidate_fstype candidate_size
+  local root_dev="" root_fstype="" best_score=0 candidate_score
   local pv_path=""
+  local -a candidate_reports=()
 
   command -v qemu-nbd >/dev/null || {
     echo "缺少 qemu-nbd，请先安装 qemu-utils" >&2
@@ -107,39 +173,43 @@ attach_vmdk() {
   sudo udevadm settle
 
   MOUNT_DIR=$(mktemp -d /tmp/shenji-vmdk.XXXXXX)
-  while read -r candidate; do
-    [[ -n "$candidate" ]] || continue
-    sudo mount -o ro "$candidate" "$MOUNT_DIR"
-    if [[ -f "$MOUNT_DIR/home/neople/game/Script.pvf" ]] && [[ -f "$MOUNT_DIR/dp2/df_game_r.lua" ]]; then
+  while read -r candidate candidate_fstype candidate_size; do
+    [[ -n "$candidate" && -n "$candidate_fstype" ]] || continue
+    if ! mount_candidate_readonly "$candidate" "$candidate_fstype"; then
+      candidate_reports+=("$candidate [$candidate_fstype $candidate_size] mount_failed")
+      continue
+    fi
+
+    candidate_score=$(count_source_root_markers "$MOUNT_DIR")
+    candidate_reports+=(
+      "$candidate [$candidate_fstype $candidate_size] markers=$candidate_score/${#SOURCE_ROOT_REQUIRED_FILES[@]}"
+    )
+
+    sudo umount "$MOUNT_DIR"
+
+    if (( candidate_score > best_score )); then
       root_dev="$candidate"
+      root_fstype="$candidate_fstype"
+      best_score=$candidate_score
+    fi
+
+    if (( best_score == ${#SOURCE_ROOT_REQUIRED_FILES[@]} )); then
       break
     fi
-    sudo umount "$MOUNT_DIR"
-  done < <(
-    {
-      lsblk -nrpo NAME,FSTYPE,TYPE,SIZE "$NBD_DEV" | awk '$2 == "ext4" && ($3 == "lvm" || $3 == "part") { print $1, $4 }'
-      if [[ -n "$VG_NAME" ]]; then
-        while read -r lv_path lv_size; do
-          [[ -n "$lv_path" && -n "$lv_size" ]] || continue
-          if [[ "$(lsblk -nrpo FSTYPE "$lv_path" 2>/dev/null | head -1)" == "ext4" ]]; then
-            echo "$lv_path $lv_size"
-          fi
-        done < <(sudo lvs --noheadings -o lv_path,lv_size "$VG_NAME" 2>/dev/null)
-      else
-        while read -r lv_path lv_size; do
-          [[ -n "$lv_path" && -n "$lv_size" ]] || continue
-          if [[ "$(lsblk -nrpo FSTYPE "$lv_path" 2>/dev/null | head -1)" == "ext4" ]]; then
-            echo "$lv_path $lv_size"
-          fi
-        done < <(sudo lvs --noheadings -o lv_path,lv_size 2>/dev/null)
-      fi
-    } | sort -k2h -r | awk '{print $1}' | awk '!seen[$0]++'
-  )
+  done < <(list_source_root_candidates)
 
-  [[ -n "$root_dev" ]] || {
+  if [[ -z "$root_dev" ]] || (( best_score < SOURCE_ROOT_MARKER_MIN_SCORE )); then
     echo "未能在 $NBD_DEV 中识别出包含神迹文件的根分区" >&2
+    if (( ${#candidate_reports[@]} > 0 )); then
+      echo "已检查候选分区:" >&2
+      printf '  %s\n' "${candidate_reports[@]}" >&2
+    fi
+    echo "如自动识别失败，请手动挂载正确根分区后，将挂载目录作为脚本第一个参数传入" >&2
     exit 1
-  }
+  fi
+
+  mount_candidate_readonly "$root_dev" "$root_fstype"
+  echo "自动识别根分区: $root_dev [$root_fstype] markers=$best_score/${#SOURCE_ROOT_REQUIRED_FILES[@]}" >&2
 
   echo "$MOUNT_DIR"
 }
@@ -149,11 +219,7 @@ validate_source_root() {
   local missing=0
   local rel
 
-  for rel in \
-    "home/neople/game/Script.pvf" \
-    "dp2/df_game_r.lua" \
-    "dp2/df_game_r.js" \
-    "dp2/libdp2pre.so"; do
+  for rel in "${SOURCE_ROOT_REQUIRED_FILES[@]}"; do
     if [[ ! -f "$root_dir/$rel" ]]; then
       echo "缺少必要文件: $root_dir/$rel" >&2
       missing=1
