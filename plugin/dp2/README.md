@@ -126,7 +126,14 @@ deploy/dnf/docker-compose/shenji_overlay/meta/db_compare/
 
 - 保留少量关键可读文件在 `data/`
 - 将 `dp` 和 `gm/dist` 压缩为 `payload/*.tgz`
-- 需要打包 rootfs 时再自动解压
+- 需要打包 rootfs 时再自动解压，其中 `dp` 会继续收敛为 `rootfs/home/template/init/dp.tgz`
+
+## 运行时覆盖优先级
+
+- `./data/Script.pvf` 存在时，优先使用外部卷文件
+- `./data/dp/` 非空时，优先使用外部卷目录
+- 只有 `./data/dp/` 为空时，才会从镜像内的 `home/template/init/dp.tgz` 解压播种
+- 这意味着后续若要替换 dp，直接覆盖 `./data/dp/` 即可；若要重新使用镜像内种子，清空 `./data/dp/` 再重启
 
 ## 文档
 

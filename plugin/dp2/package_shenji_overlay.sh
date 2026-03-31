@@ -74,6 +74,7 @@ main() {
   require_path "$overlay_dir/rootfs/home/template/init/init_main_db.sh"
   require_path "$overlay_dir/rootfs/home/template/init/init_server_group_db.sh"
   require_path "$overlay_dir/rootfs/home/template/init/init_sql.tgz"
+  require_path "$overlay_dir/rootfs/home/template/init/dp.tgz"
   require_path "$overlay_dir/rootfs/home/template/init/df_game_r"
 
   mkdir -p "$output_dir"
@@ -127,6 +128,7 @@ gm_tar=$(basename "$gm_tar")
 Notes:
 - DNF 主镜像已带 VMDK 生成的 rootfs overlay 和数据库初始化 SQL
 - 外部 ./data/Script.pvf 优先于镜像内种子；需要替换时直接覆盖外部卷中的同名文件
+- 外部 ./data/dp/ 优先于镜像内 dp.tgz；只有 ./data/dp 为空时才会自动解压镜像内种子
 - 外部 ./data/godofgm/data.db 优先于镜像内种子；需要替换时直接覆盖外部卷中的同名文件
 EOF
 

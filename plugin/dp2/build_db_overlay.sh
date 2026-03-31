@@ -350,7 +350,6 @@ assemble_rootfs() {
 
   mkdir -p \
     "$rootfs_dir/home/template/init" \
-    "$rootfs_dir/home/template/init/dp" \
     "$rootfs_dir/home/template/init/run" \
     "$rootfs_dir/home/template/neople/game" \
     "$rootfs_dir/home/template/neople/channel" \
@@ -358,7 +357,10 @@ assemble_rootfs() {
 
   cp "$source_overlay_dir/data/df_game_r" "$rootfs_dir/home/template/init/df_game_r"
   cp "$source_overlay_dir/data/libfd.so" "$rootfs_dir/home/template/neople/game/libfd.so"
-  cp -a "$source_overlay_dir/data/dp"/. "$rootfs_dir/home/template/init/dp"/
+  (
+    cd "$source_overlay_dir/data"
+    tar -czf "$rootfs_dir/home/template/init/dp.tgz" dp
+  )
   cp -a "$source_overlay_dir/data/run"/. "$rootfs_dir/home/template/init/run"/
   cp -a "$source_overlay_dir/data/game"/. "$rootfs_dir/home/template/neople/game"/
   cp -a "$source_overlay_dir/data/channel"/. "$rootfs_dir/home/template/neople/channel"/

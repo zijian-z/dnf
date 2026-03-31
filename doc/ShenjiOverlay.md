@@ -63,9 +63,10 @@ deploy/dnf/docker-compose/shenji_overlay/meta/db_compare/
 ```text
 deploy/dnf/docker-compose/shenji_overlay/payload/dp_overlay.tgz
 deploy/dnf/docker-compose/shenji_overlay/payload/gm_dist.tgz
+deploy/dnf/docker-compose/shenji_overlay/rootfs/home/template/init/dp.tgz
 ```
 
-需要组装 overlay 时，再临时解压使用。
+需要组装 overlay 时，再临时解压使用；其中 rootfs 内只保留 `dp.tgz`，不再提交展开后的 `dp/` 目录。
 
 ### 5. compose 采用分层覆盖
 
@@ -227,18 +228,22 @@ cd deploy/dnf/docker-compose/shenji_overlay
 
 ### 1. 缺失时播种，不覆盖已有卷文件
 
-这一类目前只有:
+这一类当前包括:
 
 - `./data/Script.pvf`
+- `./data/dp/*`
 
 行为:
 
 - 如果卷里没有 `./data/Script.pvf`，镜像首启会从 overlay 播种一份
 - 如果卷里已经有 `./data/Script.pvf`，镜像不会覆盖
+- 如果 `./data/dp/` 为空，镜像首启会从 `home/template/init/dp.tgz` 解压播种
+- 如果 `./data/dp/` 已经有内容，镜像不会覆盖
 
 也就是说:
 
 - `Script.pvf` 仍然完全支持手工放到外部卷后长期替换
+- `dp` 现在也支持长期通过外部卷目录替换
 
 ### 2. 运行时优先读取外部卷
 
@@ -264,7 +269,6 @@ cd deploy/dnf/docker-compose/shenji_overlay
 这一类当前包括:
 
 - `./data/df_game_r`
-- `./data/dp/*`
 - `./data/run/*.sh`
 
 行为:

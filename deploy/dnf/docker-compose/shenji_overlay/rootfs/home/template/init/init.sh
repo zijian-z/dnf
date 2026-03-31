@@ -32,6 +32,47 @@ sync_tree_force() {
   cp -af "$src"/. "$dst"/
 }
 
+dir_has_entries() {
+  local dir="$1"
+
+  [[ -d "$dir" ]] || return 1
+  find "$dir" -mindepth 1 -maxdepth 1 -print -quit | grep -q .
+}
+
+seed_dp_if_needed() {
+  local seed_dir=""
+  local tmp_dir=""
+
+  if dir_has_entries /data/dp; then
+    echo "/data/dp already has content, keep existing files"
+    return 0
+  fi
+
+  if [[ -f /home/template/init/dp.tgz ]]; then
+    tmp_dir=$(mktemp -d)
+    tar -zxf /home/template/init/dp.tgz -C "$tmp_dir"
+    if [[ -d "$tmp_dir/dp" ]]; then
+      seed_dir="$tmp_dir/dp"
+    else
+      seed_dir="$tmp_dir"
+    fi
+  elif [[ -d /home/template/init/dp ]]; then
+    seed_dir=/home/template/init/dp
+  else
+    echo "warning: dp seed not found in image overlay"
+    return 0
+  fi
+
+  rm -rf /data/dp
+  mkdir -p /data/dp
+  cp -af "$seed_dir"/. /data/dp/
+  echo "seed /data/dp from image overlay"
+
+  if [[ -n "$tmp_dir" ]]; then
+    rm -rf "$tmp_dir"
+  fi
+}
+
 rm -rf /home/template/init/init_sql
 mkdir -p /home/template/init/init_sql
 tar -zxf /home/template/init/init_sql.tgz -C /home/template/init/init_sql
@@ -94,8 +135,7 @@ else
   fi
 fi
 
-sync_tree_force /home/template/init/dp /data/dp
-echo "refresh dp overlay files"
+seed_dp_if_needed
 
 rm -rf /etc/supervisor/conf.d/channel.conf
 cp /etc/supervisor/conf.d/channel.conf.template /etc/supervisor/conf.d/channel.conf
