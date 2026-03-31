@@ -21,6 +21,8 @@ NBD_DEV=""
 MOUNT_DIR=""
 VG_NAME=""
 VG_NAMES=()
+LVM_CONFIG=""
+LVM_COMMON_ARGS=()
 SOURCE_ROOT_MARKER_MIN_SCORE=2
 SOURCE_ROOT_REQUIRED_FILES=(
   "home/neople/game/Script.pvf"
@@ -61,7 +63,7 @@ cleanup() {
   fi
   if (( ${#VG_NAMES[@]} > 0 )); then
     for vg_name in "${VG_NAMES[@]}"; do
-      sudo vgchange -an "$vg_name" >/dev/null 2>&1 || true
+      run_lvm vgchange -an "$vg_name" >/dev/null 2>&1 || true
     done
   fi
   if [[ -n "$NBD_DEV" ]]; then
@@ -95,12 +97,35 @@ ensure_vmdk_dependencies() {
     fi
   done
 
+  if ! command -v lvmconfig >/dev/null 2>&1; then
+    missing+=("lvmconfig")
+  fi
+
   if (( ${#missing[@]} > 0 )); then
     echo "缺少 VMDK 挂载所需命令: ${missing[*]}" >&2
     echo "当前镜像的主数据分区是 LVM2_member，必须先安装 lvm2 和 qemu-utils" >&2
     echo "Ubuntu/Debian 可执行: sudo apt update && sudo apt install -y lvm2 qemu-utils" >&2
     exit 1
   fi
+}
+
+prepare_lvm_common_args() {
+  local filter_entries
+
+  filter_entries='"a|^/dev/nbd[0-9]+$|","a|^/dev/nbd[0-9]+p[0-9]+$|","a|^/dev/dm-[0-9]+$|","a|^/dev/mapper/.*$|","r|.*|"'
+  LVM_CONFIG="devices { filter=[$filter_entries] global_filter=[$filter_entries]"
+  if sudo lvmconfig --type default devices/use_devicesfile >/dev/null 2>&1; then
+    LVM_CONFIG+=" use_devicesfile=0"
+  fi
+  LVM_CONFIG+=" }"
+  LVM_COMMON_ARGS=(--config "$LVM_CONFIG")
+}
+
+run_lvm() {
+  local cmd="$1"
+  shift
+
+  sudo "$cmd" "${LVM_COMMON_ARGS[@]}" "$@"
 }
 
 count_source_root_markers() {
@@ -147,6 +172,7 @@ device_has_partitions() {
 list_source_root_candidates() {
   local dev dev_type dev_size dev_fstype
   local lv_path lv_size lv_vg lv_fstype
+  local holder_path holder_size holder_fstype
 
   {
     while IFS='|' read -r dev dev_type dev_size; do
@@ -170,6 +196,17 @@ list_source_root_candidates() {
       [[ -n "$lv_fstype" ]] || lv_fstype="unknown"
       echo "$lv_path $lv_fstype $lv_size"
     done < <(list_lvm_candidates_for_nbd)
+
+    while IFS='|' read -r holder_path holder_size; do
+      [[ -n "$holder_path" ]] || continue
+      holder_fstype=$(resolve_block_fstype "$holder_path")
+      case "$holder_fstype" in
+        ""|LVM2_member|linux_raid_member|swap)
+          continue
+          ;;
+      esac
+      echo "$holder_path $holder_fstype ${holder_size:-0}"
+    done < <(list_dm_holders_for_nbd)
   } |
     awk '!seen[$1]++' |
     sort -k3h -r
@@ -188,7 +225,7 @@ resolve_block_fstype() {
 }
 
 find_volume_groups_for_nbd() {
-  sudo pvs --noheadings --separator '|' -o pv_name,vg_name 2>/dev/null |
+  run_lvm pvs --noheadings --separator '|' -o pv_name,vg_name 2>/dev/null |
     awk -F'|' -v nbd="$NBD_DEV" '
       function trim(s) {
         gsub(/^[[:space:]]+|[[:space:]]+$/, "", s)
@@ -205,7 +242,7 @@ find_volume_groups_for_nbd() {
 }
 
 list_lvm_candidates_for_nbd() {
-  sudo lvs --noheadings --separator '|' -o lv_path,lv_size,devices,vg_name 2>/dev/null |
+  run_lvm lvs --noheadings --separator '|' -o lv_path,lv_size,devices,vg_name 2>/dev/null |
     awk -F'|' -v nbd="$NBD_DEV" '
       function trim(s) {
         gsub(/^[[:space:]]+|[[:space:]]+$/, "", s)
@@ -228,16 +265,31 @@ scan_lvm_devices_for_nbd() {
 
   while IFS='|' read -r dev dev_type dev_size; do
     [[ -n "$dev" ]] || continue
-    sudo pvscan --cache "$dev" >/dev/null 2>&1 || true
-    sudo pvscan --cache -aay "$dev" >/dev/null 2>&1 || true
+    run_lvm pvscan --cache "$dev" >/dev/null 2>&1 || true
+    run_lvm pvscan --cache -aay "$dev" >/dev/null 2>&1 || true
   done < <(list_nbd_block_devices)
 
-  sudo vgscan --mknodes >/dev/null 2>&1 || true
+  run_lvm vgscan --mknodes >/dev/null 2>&1 || true
   sudo udevadm settle
 }
 
+list_dm_holders_for_nbd() {
+  local dev dev_type dev_size holder holder_name holder_path holder_size
+
+  while IFS='|' read -r dev dev_type dev_size; do
+    [[ -n "$dev" ]] || continue
+    for holder in "/sys/class/block/${dev##*/}/holders/"*; do
+      [[ -e "$holder" ]] || continue
+      holder_name="${holder##*/}"
+      holder_path="/dev/$holder_name"
+      holder_size=$(lsblk -nrpo SIZE "$holder_path" 2>/dev/null | awk 'NF {print $1; exit}')
+      echo "$holder_path|${holder_size:-0}"
+    done
+  done < <(list_nbd_block_devices)
+}
+
 print_nbd_layout() {
-  local dev type size fstype lv_path lv_size lv_vg
+  local dev type size fstype lv_path lv_size lv_vg holder_path holder_size
 
   while read -r dev type size; do
     [[ -n "$dev" ]] || continue
@@ -252,6 +304,13 @@ print_nbd_layout() {
     [[ -n "$fstype" ]] || fstype="-"
     echo "  $lv_path [lvm $lv_size] fstype=$fstype vg=${lv_vg:-unknown}" >&2
   done < <(list_lvm_candidates_for_nbd)
+
+  while IFS='|' read -r holder_path holder_size; do
+    [[ -n "$holder_path" ]] || continue
+    fstype=$(resolve_block_fstype "$holder_path")
+    [[ -n "$fstype" ]] || fstype="-"
+    echo "  $holder_path [holder ${holder_size:-0}] fstype=$fstype" >&2
+  done < <(list_dm_holders_for_nbd)
 }
 
 attach_vmdk() {
@@ -277,6 +336,9 @@ attach_vmdk() {
   sleep 1
   VG_NAME=""
   VG_NAMES=()
+  LVM_CONFIG=""
+  LVM_COMMON_ARGS=()
+  prepare_lvm_common_args
   scan_lvm_devices_for_nbd
 
   while read -r vg_name; do
