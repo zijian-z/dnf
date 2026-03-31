@@ -79,19 +79,51 @@ sysctl -p
 
 ## 拉取镜像
 
-所有镜像版本请查看 [Docker Hub](https://hub.docker.com/repository/docker/llnut/dnf)。
+镜像同时发布到以下仓库，内容完全一致，选择速度最快的即可。
 
-可用的镜像版本
+### Tag 说明
+
+| 类型 | 格式 | 示例 |
+|------|------|------|
+| Release Latest | `<os>-qf1031-latest` | `debian13-qf1031-latest` |
+| Release | `<os>-qf1031-<日期>` | `debian13-qf1031-20260331` |
+| Dev Latest | `<os>-qf1031-dev-latest` | `debian13-qf1031-dev-latest` |
+| Dev | `<os>-qf1031-dev-<commit id>` | `debian13-qf1031-dev-a1b2c3d` |
+
+其中 `<os>` 为 `debian13`、`alma9`、`ubuntu26`、`centos7` 之一。`latest` 始终指向最新的 Release 镜像，`dev-latest` 始终指向最新的开发版镜像。开发版镜像在每次 push 到 main 分支时生成。
+
+### 阿里云 ACR (国内拉取加速)
 
 ```shell
-llnut/dnf:debian13-qf1031-latest
-llnut/dnf:ubuntu26-qf1031-latest
-llnut/dnf:alma9-qf1031-latest
-llnut/dnf:centos7-qf1031-latest
+docker pull crpi-0ghho6wxim378ik8.cn-hangzhou.personal.cr.aliyuncs.com/llnut/dnf:debian13-qf1031-latest
+docker pull crpi-0ghho6wxim378ik8.cn-hangzhou.personal.cr.aliyuncs.com/llnut/dnf:alma9-qf1031-latest
+docker pull crpi-0ghho6wxim378ik8.cn-hangzhou.personal.cr.aliyuncs.com/llnut/dnf:ubuntu26-qf1031-latest
+docker pull crpi-0ghho6wxim378ik8.cn-hangzhou.personal.cr.aliyuncs.com/llnut/dnf:centos7-qf1031-latest
 ```
 
-拉取示例
+### Docker Hub
 
 ```shell
 docker pull llnut/dnf:debian13-qf1031-latest
+docker pull llnut/dnf:alma9-qf1031-latest
+docker pull llnut/dnf:ubuntu26-qf1031-latest
+docker pull llnut/dnf:centos7-qf1031-latest
+```
+
+### ghcr.io
+
+```shell
+docker pull ghcr.io/llnut/dnf:debian13-qf1031-latest
+docker pull ghcr.io/llnut/dnf:alma9-qf1031-latest
+docker pull ghcr.io/llnut/dnf:ubuntu26-qf1031-latest
+docker pull ghcr.io/llnut/dnf:centos7-qf1031-latest
+```
+
+### quay.io
+
+```shell
+docker pull quay.io/llnut/dnf:debian13-qf1031-latest
+docker pull quay.io/llnut/dnf:alma9-qf1031-latest
+docker pull quay.io/llnut/dnf:ubuntu26-qf1031-latest
+docker pull quay.io/llnut/dnf:centos7-qf1031-latest
 ```

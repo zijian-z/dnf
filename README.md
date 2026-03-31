@@ -1,13 +1,30 @@
 # 地下城与勇士容器版本
 
-[![Docker Image](https://img.shields.io/docker/pulls/llnut/dnf.svg?maxAge=3600)](https://hub.docker.com/r/llnut/dnf/)
-[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/llnut/dnf/qf-1031/LICENSE)
+[![CI](https://github.com/llnut/dnf/actions/workflows/docker.yml/badge.svg)](https://github.com/llnut/dnf/actions/workflows/docker.yml)
+[![Docker Hub](https://img.shields.io/docker/pulls/llnut/dnf.svg?label=Docker%20Hub&maxAge=3600)](https://hub.docker.com/r/llnut/dnf/)
+[![ghcr.io](https://img.shields.io/badge/ghcr.io-available-blue)](https://github.com/llnut/dnf/pkgs/container/dnf)
+[![quay.io](https://img.shields.io/badge/quay.io-available-blue)](https://quay.io/repository/llnut/dnf)
+[![ACR](https://img.shields.io/badge/ACR-available-blue)](https://crpi-0ghho6wxim378ik8.cn-hangzhou.personal.cr.aliyuncs.com/llnut/dnf)
+[![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/llnut/dnf/qf-1031/LICENSE)
 
 ## 概述
 
 本项目基于 [1995chen/dnf](https://github.com/1995chen/dnf) 适配 **清风-1031** 版本，将地下城与勇士（毒奶粉、DNF、DOF）打包为 Docker 镜像，支持 `Debian 13`、`Almalinux 9`、`Ubuntu 26`、`CentOS 7` 四种基础镜像，通过环境变量和初始化脚本实现快速部署。
 
 > **注意**：本项目使用 [llnut 登录器](https://github.com/llnut/dnf-login)，环境变量和端口与 1995chen 版本不同（[详细区别](#vs-1995chen-dep)），请使用本仓库的配置文件部署。统一网关用户请拉取 `tongyigate` 后缀的镜像，该镜像后续不再维护。
+
+---
+
+## 镜像 Tag 说明
+
+| 类型 | 格式 | 示例 |
+|------|------|------|
+| Release Latest | `<os>-qf1031-latest` | `debian13-qf1031-latest` |
+| Release | `<os>-qf1031-<日期>` | `debian13-qf1031-20260331` |
+| Dev Latest | `<os>-qf1031-dev-latest` | `debian13-qf1031-dev-latest` |
+| Dev | `<os>-qf1031-dev-<commit id>` | `debian13-qf1031-dev-a1b2c3d` |
+
+其中 `<os>` 为 `debian13`、`alma9`、`ubuntu26`、`centos7` 之一。开发版镜像在每次 push 到 main 分支时生成。
 
 ---
 
