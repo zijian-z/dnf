@@ -126,7 +126,7 @@ dnf_tar=$(basename "$dnf_tar")
 gm_tar=$(basename "$gm_tar")
 
 Notes:
-- DNF 主镜像已带 VMDK 生成的 rootfs overlay 和数据库初始化 SQL
+- DNF 主镜像只使用 rootfs 作为发布输入，并带 VMDK 生成的数据库初始化 SQL
 - 外部 ./data/Script.pvf 优先于镜像内种子；需要替换时直接覆盖外部卷中的同名文件
 - 外部 ./data/dp/ 优先于镜像内 dp.tgz；只有 ./data/dp 为空时才会自动解压镜像内种子
 - 外部 ./data/godofgm/data.db 优先于镜像内种子；需要替换时直接覆盖外部卷中的同名文件

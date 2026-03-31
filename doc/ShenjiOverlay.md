@@ -47,7 +47,7 @@ deploy/dnf/docker-compose/shenji_overlay/meta/db_compare/
 
 当前策略已经改为:
 
-- `data/df_game_r` 为默认覆盖文件
+- `rootfs/home/template/init/df_game_r` 为默认覆盖文件
 - 不再放在 `optional/`
 - 后续构建 rootfs overlay 时会直接写入镜像覆盖层
 
@@ -55,18 +55,21 @@ deploy/dnf/docker-compose/shenji_overlay/meta/db_compare/
 
 为了减少 GitHub 上的噪音，当前仓库默认不保留以下目录的展开版本:
 
-- `data/dp`
+- `deploy/dnf/docker-compose/shenji_overlay/data`
 - `gm/dist`
 
 它们会被收敛为:
 
 ```text
-deploy/dnf/docker-compose/shenji_overlay/payload/dp_overlay.tgz
+deploy/dnf/docker-compose/shenji_overlay/rootfs/
 deploy/dnf/docker-compose/shenji_overlay/payload/gm_dist.tgz
-deploy/dnf/docker-compose/shenji_overlay/rootfs/home/template/init/dp.tgz
 ```
 
-需要组装 overlay 时，再临时解压使用；其中 rootfs 内只保留 `dp.tgz`，不再提交展开后的 `dp/` 目录。
+其中:
+
+- DNF 发布输入只保留 `rootfs/`
+- `dp` 会收敛为 `rootfs/home/template/init/dp.tgz`
+- `deploy/.../data` 不再作为仓库内的发布输入，只是容器运行时的外部卷目录
 
 ### 5. compose 采用分层覆盖
 
@@ -149,13 +152,14 @@ plugin/dp2/sync_from_vmdk.sh /path/to/DNFServer.vmdk
 
 这一步会:
 
-- 提取神迹 `Script.pvf`
-- 提取神迹 `df_game_r`
-- 提取 `libfd.so`
-- 提取 `channel_amd64` 和双份 `channel_info`
-- 提取 `run` 语义并生成覆盖版 `start_game.sh` / `start_channel.sh`
+- 直接生成 `rootfs/home/template/init/Script.pvf`
+- 直接生成 `rootfs/home/template/init/df_game_r`
+- 直接生成 `rootfs/home/template/init/dp.tgz`
+- 直接生成 `rootfs/home/template/neople/game/*`
+- 直接生成 `rootfs/home/template/neople/channel/*`
+- 直接生成 `rootfs/home/template/init/run/start_game.sh` / `start_channel.sh`
 - 提取网页 GM 目录
-- 将 `data/dp`、`gm/dist` 压缩为 `payload/*.tgz`
+- 将 `gm/dist` 压缩为 `payload/gm_dist.tgz`
 
 #### 2. 基于 VMDK dump 生成数据库 overlay
 
@@ -313,7 +317,7 @@ OPEN_CHANNEL=11
 ## 关于 `Script.pvf`
 
 - `Script.pvf` 仍按清风风格放在 `./data/Script.pvf`
-- 仓库中的 `deploy/dnf/docker-compose/shenji_overlay/data/Script.pvf` 已加入 `.gitignore`
+- 仓库不再保留 `deploy/dnf/docker-compose/shenji_overlay/data/` 作为发布输入
 - 运行时外部卷中的 `./data/Script.pvf` 优先于镜像内种子，替换时直接覆盖这个文件即可
 
 ## VMDK 关键 SO 分析

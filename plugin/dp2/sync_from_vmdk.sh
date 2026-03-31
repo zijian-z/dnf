@@ -6,6 +6,7 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd -- "$SCRIPT_DIR/../.." && pwd)
 MANIFEST_FILE="$SCRIPT_DIR/shenji_overlay.manifest"
 BASE_DP2_TGZ="$SCRIPT_DIR/dp2.tgz"
+ROOTFS_TEMPLATE_DIR="$SCRIPT_DIR/rootfs_template"
 DEFAULT_OUTPUT_DIR="$REPO_ROOT/deploy/dnf/docker-compose/shenji_overlay"
 COMPOSE_PROJECT_TEMPLATE="$REPO_ROOT/deploy/dnf/docker-compose/shenji_overlay/docker-compose.project.yaml"
 COMPOSE_OVERRIDE_TEMPLATE="$REPO_ROOT/deploy/dnf/docker-compose/shenji_overlay/docker-compose.override.yaml"
@@ -14,7 +15,6 @@ GODOFGM_START_TEMPLATE="$REPO_ROOT/deploy/dnf/docker-compose/shenji_overlay/gm-s
 GODOFGM_DOCKERFILE_TEMPLATE="$REPO_ROOT/deploy/dnf/docker-compose/shenji_overlay/Dockerfile.godofgm"
 GAME_START_TEMPLATE="$REPO_ROOT/deploy/dnf/docker-compose/shenji_overlay/game-start.sh.template"
 CHANNEL_START_TEMPLATE="$REPO_ROOT/deploy/dnf/docker-compose/shenji_overlay/channel-start.sh.template"
-DP_PAYLOAD_REL="payload/dp_overlay.tgz"
 GM_DIST_PAYLOAD_REL="payload/gm_dist.tgz"
 
 NBD_DEV=""
@@ -28,8 +28,9 @@ usage() {
 
 说明:
   1. 输出目录默认是 deploy/dnf/docker-compose/shenji_overlay
-  2. 脚本会以清风仓库自带 dp2.tgz 为基底，再覆盖神迹 VMDK 中确认必要的玩法文件
-  3. df_game_r 现已作为默认覆盖文件同步出来，后续会参与镜像 overlay 打包
+  2. 脚本会直接生成 rootfs/，作为后续镜像打包的唯一 DNF 输入
+  3. dp 会以清风仓库自带 dp2.tgz 为基底，再覆盖神迹 VMDK 中确认必要的玩法文件
+  4. df_game_r 现已作为默认覆盖文件同步到 rootfs 中
 
 示例:
   ./sync_from_vmdk.sh /home/ubuntu/dnf/DNFServer.vmdk
@@ -162,25 +163,63 @@ validate_source_root() {
   [[ "$missing" -eq 0 ]] || exit 1
 }
 
-copy_manifest_files() {
+prepare_rootfs_layout() {
+  local out_dir="$1"
+  local rootfs_dir="$out_dir/rootfs"
+
+  rm -rf "$rootfs_dir"
+  mkdir -p "$rootfs_dir"
+  cp -a "$ROOTFS_TEMPLATE_DIR"/. "$rootfs_dir"/
+
+  mkdir -p \
+    "$rootfs_dir/home/template/init/run" \
+    "$rootfs_dir/home/template/neople/game/channel_info" \
+    "$rootfs_dir/home/template/neople/channel/channel_info" \
+    "$rootfs_dir/opt/shenji-overlay-meta"
+}
+
+copy_vmdk_files_to_rootfs() {
   local source_root="$1"
   local out_dir="$2"
-  local line source_rel dest_rel mode level reason source_path dest_path
+  local rootfs_dir="$out_dir/rootfs"
 
-  while IFS= read -r line; do
-    [[ -n "$line" ]] || continue
-    [[ "${line:0:1}" == "#" ]] && continue
+  install -D -m 0644 "$source_root/home/neople/game/Script.pvf" \
+    "$rootfs_dir/home/template/init/Script.pvf"
+  install -D -m 0755 "$source_root/home/neople/game/df_game_r" \
+    "$rootfs_dir/home/template/init/df_game_r"
+  install -D -m 0755 "$source_root/home/neople/game/libfd.so" \
+    "$rootfs_dir/home/template/neople/game/libfd.so"
+  install -D -m 0644 "$source_root/home/neople/game/channel_info/channel_info.etc" \
+    "$rootfs_dir/home/template/neople/game/channel_info/channel_info.etc"
+  install -D -m 0644 "$source_root/home/neople/game/channel_info/version" \
+    "$rootfs_dir/home/template/neople/game/channel_info/version"
+  install -D -m 0755 "$source_root/home/neople/channel/channel_amd64" \
+    "$rootfs_dir/home/template/neople/channel/channel_amd64"
+  install -D -m 0644 "$source_root/home/neople/channel/channel_info/channel_info.etc" \
+    "$rootfs_dir/home/template/neople/channel/channel_info/channel_info.etc"
+  install -D -m 0644 "$source_root/home/neople/channel/channel_info/version" \
+    "$rootfs_dir/home/template/neople/channel/channel_info/version"
+}
 
-    IFS='|' read -r source_rel dest_rel mode level reason <<<"$line"
-    source_path="$source_root/$source_rel"
-    dest_path="$out_dir/$dest_rel"
+build_dp_archive() {
+  local source_root="$1"
+  local out_dir="$2"
+  local tmp_dir
 
-    if [[ "$level" == "required" ]]; then
-      install -D -m "$mode" "$source_path" "$dest_path"
-    else
-      install -D -m "$mode" "$source_path" "$dest_path"
-    fi
-  done <"$MANIFEST_FILE"
+  tmp_dir=$(mktemp -d)
+  mkdir -p "$tmp_dir/dp"
+  tar -xzf "$BASE_DP2_TGZ" -C "$tmp_dir/dp"
+
+  install -D -m 0644 "$source_root/dp2/df_game_r.lua" "$tmp_dir/dp/df_game_r.lua"
+  install -D -m 0644 "$source_root/dp2/df_game_r.js" "$tmp_dir/dp/df_game_r.js"
+  install -D -m 0755 "$source_root/dp2/libdp2pre.so" "$tmp_dir/dp/libhook.so"
+
+  (
+    cd "$tmp_dir"
+    tar -czf "$out_dir/rootfs/home/template/init/dp.tgz" dp
+  )
+
+  rm -rf "$tmp_dir"
 }
 
 copy_sidecar_files() {
@@ -223,25 +262,17 @@ copy_support_files() {
     cp "$GODOFGM_DOCKERFILE_TEMPLATE" "$out_dir/Dockerfile.godofgm"
   fi
 
-  mkdir -p "$out_dir/data/run"
-  cp "$GAME_START_TEMPLATE" "$out_dir/data/run/start_game.sh"
-  chmod +x "$out_dir/data/run/start_game.sh"
-  cp "$CHANNEL_START_TEMPLATE" "$out_dir/data/run/start_channel.sh"
-  chmod +x "$out_dir/data/run/start_channel.sh"
+  mkdir -p "$out_dir/rootfs/home/template/init/run"
+  cp "$GAME_START_TEMPLATE" "$out_dir/rootfs/home/template/init/run/start_game.sh"
+  chmod +x "$out_dir/rootfs/home/template/init/run/start_game.sh"
+  cp "$CHANNEL_START_TEMPLATE" "$out_dir/rootfs/home/template/init/run/start_channel.sh"
+  chmod +x "$out_dir/rootfs/home/template/init/run/start_channel.sh"
 }
 
 pack_payloads() {
   local out_dir="$1"
 
   mkdir -p "$out_dir/payload"
-
-  if [[ -d "$out_dir/data/dp" ]]; then
-    (
-      cd "$out_dir"
-      tar -czf "$DP_PAYLOAD_REL" data/dp
-    )
-    rm -rf "$out_dir/data/dp"
-  fi
 
   if [[ -d "$out_dir/gm/dist" ]]; then
     (
@@ -278,31 +309,39 @@ EOF
     echo "3. 已启用神迹 dp2 脚本覆盖"
     echo "4. 已启用神迹 run 语义提取版 start_game.sh 与 start_channel.sh"
     echo "5. 已同步神迹 channel_amd64 与双份 channel_info"
-    echo "6. 已同步网页 GM 与 dp 覆盖，并压缩为 payload/*.tgz"
+    echo "6. 已同步网页 GM，并压缩为 payload/gm_dist.tgz"
     echo "7. 已保留运行所需的 libfd.so，并保存原始 run 脚本以便后续比对更新"
   } >"$out_dir/meta/recommended-env.txt"
 
   (
     cd "$out_dir"
     sha256sum \
-      data/Script.pvf \
-      data/df_game_r \
-      data/libfd.so \
-      data/game/channel_info/channel_info.etc \
-      data/game/channel_info/version \
-      data/channel/channel_amd64 \
-      data/channel/channel_info/channel_info.etc \
-      data/channel/channel_info/version \
-      data/dp/df_game_r.lua \
-      data/dp/df_game_r.js \
-      data/dp/libhook.so \
-      gm/dist/godofgm \
-      gm/dist/config/server.json \
-      gm/dist/data/data.db \
-      data/run/start_game.sh \
-      data/run/start_channel.sh \
+      rootfs/home/template/init/Script.pvf \
+      rootfs/home/template/init/df_game_r \
+      rootfs/home/template/init/dp.tgz \
+      rootfs/home/template/neople/game/libfd.so \
+      rootfs/home/template/neople/game/channel_info/channel_info.etc \
+      rootfs/home/template/neople/game/channel_info/version \
+      rootfs/home/template/neople/channel/channel_amd64 \
+      rootfs/home/template/neople/channel/channel_info/channel_info.etc \
+      rootfs/home/template/neople/channel/channel_info/version \
+      rootfs/home/template/init/run/start_game.sh \
+      rootfs/home/template/init/run/start_channel.sh \
+      payload/gm_dist.tgz \
       > meta/checksums.txt
   )
+}
+
+refresh_rootfs_meta() {
+  local out_dir="$1"
+  local meta_root="$out_dir/rootfs/opt/shenji-overlay-meta"
+
+  rm -rf "$meta_root"
+  mkdir -p "$meta_root"
+
+  if [[ -d "$out_dir/meta" ]]; then
+    cp -a "$out_dir/meta"/. "$meta_root"/
+  fi
 }
 
 main() {
@@ -326,27 +365,25 @@ main() {
   validate_source_root "$source_root"
 
   mkdir -p "$out_dir"
-  rm -rf "$out_dir/data/dp.tmp"
-  mkdir -p "$out_dir/data/dp.tmp"
-  tar -xzf "$BASE_DP2_TGZ" -C "$out_dir/data/dp.tmp"
-  rm -rf "$out_dir/data/dp"
-  mv "$out_dir/data/dp.tmp" "$out_dir/data/dp"
-  mkdir -p "$out_dir/meta" "$out_dir/optional"
+  rm -rf "$out_dir/data" "$out_dir/optional"
+  rm -f "$out_dir/payload/dp_overlay.tgz"
+  mkdir -p "$out_dir/meta"
 
-  copy_manifest_files "$source_root" "$out_dir"
+  prepare_rootfs_layout "$out_dir"
+  copy_vmdk_files_to_rootfs "$source_root" "$out_dir"
+  build_dp_archive "$source_root" "$out_dir"
   copy_sidecar_files "$source_root" "$out_dir"
   copy_support_files "$out_dir"
-  write_metadata "$source_input" "$source_root" "$out_dir"
   pack_payloads "$out_dir"
+  write_metadata "$source_input" "$source_root" "$out_dir"
+  refresh_rootfs_meta "$out_dir"
 
   cat <<EOF
 同步完成:
   输出目录: $out_dir
 
 已生成:
-  $out_dir/data/Script.pvf
-  $out_dir/data/df_game_r
-  $out_dir/payload/dp_overlay.tgz
+  $out_dir/rootfs
   $out_dir/payload/gm_dist.tgz
   $out_dir/meta
 

@@ -26,20 +26,20 @@
 
 生成内容包括:
 
-- `data/Script.pvf`
-- `data/df_game_r`
-- `data/libfd.so`
-- `data/game/*`
-- `data/channel/*`
-- `data/run/*`
-- `payload/dp_overlay.tgz`
+- `rootfs/home/template/init/Script.pvf`
+- `rootfs/home/template/init/df_game_r`
+- `rootfs/home/template/init/dp.tgz`
+- `rootfs/home/template/init/run/*`
+- `rootfs/home/template/neople/game/*`
+- `rootfs/home/template/neople/channel/*`
 - `payload/gm_dist.tgz`
 - `meta/*`
 
 注意:
 
 - `df_game_r` 现在是默认覆盖文件，不再放在 `optional/`
-- `data/dp` 与 `gm/dist` 默认会被压成 `payload/*.tgz`
+- DNF 发布输入只保留 `rootfs/`
+- `gm/dist` 默认会被压成 `payload/gm_dist.tgz`
 
 ### 2. `build_db_overlay.sh`
 
@@ -124,9 +124,10 @@ deploy/dnf/docker-compose/shenji_overlay/meta/db_compare/
 
 为了避免 overlay 文件过多、难以审阅，当前策略是:
 
-- 保留少量关键可读文件在 `data/`
-- 将 `dp` 和 `gm/dist` 压缩为 `payload/*.tgz`
-- 需要打包 rootfs 时再自动解压，其中 `dp` 会继续收敛为 `rootfs/home/template/init/dp.tgz`
+- DNF 发布输入只保留 `rootfs/`
+- 仓库内不再保留 `deploy/dnf/docker-compose/shenji_overlay/data/`
+- `dp` 收敛为 `rootfs/home/template/init/dp.tgz`
+- `gm/dist` 收敛为 `payload/gm_dist.tgz`
 
 ## 运行时覆盖优先级
 

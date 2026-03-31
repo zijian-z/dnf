@@ -9,7 +9,6 @@ DEFAULT_DUMP_PATH="$WORKSPACE_ROOT/tmp/db_dumps/vmdk_latest_all.sql.gz"
 DEFAULT_OVERLAY_DIR="$REPO_ROOT/deploy/dnf/docker-compose/shenji_overlay"
 INIT_SQL_TGZ="$REPO_ROOT/build/dnf_data/home/template/init/init_sql.tgz"
 ROOTFS_TEMPLATE_DIR="$SCRIPT_DIR/rootfs_template"
-DP_PAYLOAD_PATH="payload/dp_overlay.tgz"
 TMP_ROOT=""
 
 MAIN_SOURCE_DBS=(
@@ -75,27 +74,31 @@ require_overlay_input() {
 prepare_overlay_workspace() {
   local overlay_dir="$1"
   local work_dir="$2"
-  local rel
+  local rootfs_dir="$overlay_dir/rootfs"
 
   mkdir -p "$work_dir/data"
 
-  for rel in data/game data/channel data/run data/libfd.so data/df_game_r; do
-    if [[ -e "$overlay_dir/$rel" ]]; then
-      mkdir -p "$(dirname "$work_dir/$rel")"
-      cp -a "$overlay_dir/$rel" "$work_dir/$rel"
-    fi
-  done
+  [[ -d "$rootfs_dir" ]] || {
+    echo "缺少 rootfs 输入: $rootfs_dir" >&2
+    exit 1
+  }
 
-  if [[ ! -f "$work_dir/data/df_game_r" && -f "$overlay_dir/optional/df_game_r.shenji" ]]; then
-    mkdir -p "$work_dir/data"
-    cp -a "$overlay_dir/optional/df_game_r.shenji" "$work_dir/data/df_game_r"
+  cp "$rootfs_dir/home/template/init/df_game_r" "$work_dir/data/df_game_r"
+  cp "$rootfs_dir/home/template/neople/game/libfd.so" "$work_dir/data/libfd.so"
+  mkdir -p "$work_dir/data/game/channel_info" "$work_dir/data/channel/channel_info" "$work_dir/data/run"
+  cp -a "$rootfs_dir/home/template/neople/game/channel_info"/. "$work_dir/data/game/channel_info"/
+  cp "$rootfs_dir/home/template/neople/channel/channel_amd64" "$work_dir/data/channel/channel_amd64"
+  cp -a "$rootfs_dir/home/template/neople/channel/channel_info"/. "$work_dir/data/channel/channel_info"/
+  cp -a "$rootfs_dir/home/template/init/run"/. "$work_dir/data/run"/
+
+  if [[ -f "$rootfs_dir/home/template/init/Script.pvf" ]]; then
+    cp "$rootfs_dir/home/template/init/Script.pvf" "$work_dir/data/Script.pvf"
   fi
 
-  if [[ -f "$overlay_dir/$DP_PAYLOAD_PATH" ]]; then
-    tar -xzf "$overlay_dir/$DP_PAYLOAD_PATH" -C "$work_dir"
-  elif [[ -d "$overlay_dir/data/dp" ]]; then
-    mkdir -p "$work_dir/data"
-    cp -a "$overlay_dir/data/dp" "$work_dir/data/dp"
+  if [[ -f "$rootfs_dir/home/template/init/dp.tgz" ]]; then
+    tar -xzf "$rootfs_dir/home/template/init/dp.tgz" -C "$work_dir/data"
+  elif [[ -d "$rootfs_dir/home/template/init/dp" ]]; then
+    cp -a "$rootfs_dir/home/template/init/dp" "$work_dir/data/dp"
   fi
 }
 
@@ -366,8 +369,8 @@ assemble_rootfs() {
   cp -a "$source_overlay_dir/data/channel"/. "$rootfs_dir/home/template/neople/channel"/
   cp "$generated_sql_tgz" "$rootfs_dir/home/template/init/init_sql.tgz"
 
-  if [[ -f "$overlay_dir/data/Script.pvf" ]]; then
-    cp "$overlay_dir/data/Script.pvf" "$rootfs_dir/home/template/init/Script.pvf"
+  if [[ -f "$source_overlay_dir/data/Script.pvf" ]]; then
+    cp "$source_overlay_dir/data/Script.pvf" "$rootfs_dir/home/template/init/Script.pvf"
   fi
 
   if [[ -d "$overlay_dir/meta" ]]; then

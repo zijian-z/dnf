@@ -1,12 +1,12 @@
 # source_path|dest_path|mode|level|reason
-home/neople/game/Script.pvf|data/Script.pvf|0644|required|神迹玩法主体，直接覆盖清风默认 PVF
-home/neople/game/libfd.so|data/libfd.so|0755|required|神迹 run 脚本实际预加载的 C++ 注入库
-home/neople/game/channel_info/channel_info.etc|data/game/channel_info/channel_info.etc|0644|required|神迹游戏侧频道信息，与清风默认版本不同
-home/neople/game/channel_info/version|data/game/channel_info/version|0644|required|神迹游戏侧频道信息版本号
-home/neople/channel/channel_amd64|data/channel/channel_amd64|0755|required|神迹 run 实际启动的频道进程
-home/neople/channel/channel_info/channel_info.etc|data/channel/channel_info/channel_info.etc|0644|required|神迹频道侧 channel_amd64 依赖的频道信息
-home/neople/channel/channel_info/version|data/channel/channel_info/version|0644|required|神迹频道侧频道信息版本号
-dp2/df_game_r.lua|data/dp/df_game_r.lua|0644|required|神迹 DP Lua 逻辑脚本
-dp2/df_game_r.js|data/dp/df_game_r.js|0644|required|神迹 DP JS 逻辑脚本
-dp2/libdp2pre.so|data/dp/libhook.so|0755|required|神迹预加载库，落到清风约定的 libhook.so 路径
-home/neople/game/df_game_r|optional/df_game_r.shenji|0755|optional|仅当 Script.pvf 加神迹 DP 仍无法跑通时再回退使用
+home/neople/game/Script.pvf|rootfs/home/template/init/Script.pvf|0644|required|神迹玩法主体，直接覆盖清风默认 PVF
+home/neople/game/df_game_r|rootfs/home/template/init/df_game_r|0755|required|神迹 df_game_r，作为默认覆盖版本参与镜像打包
+home/neople/game/libfd.so|rootfs/home/template/neople/game/libfd.so|0755|required|神迹 run 脚本实际预加载的 C++ 注入库
+home/neople/game/channel_info/channel_info.etc|rootfs/home/template/neople/game/channel_info/channel_info.etc|0644|required|神迹游戏侧频道信息，与清风默认版本不同
+home/neople/game/channel_info/version|rootfs/home/template/neople/game/channel_info/version|0644|required|神迹游戏侧频道信息版本号
+home/neople/channel/channel_amd64|rootfs/home/template/neople/channel/channel_amd64|0755|required|神迹 run 实际启动的频道进程
+home/neople/channel/channel_info/channel_info.etc|rootfs/home/template/neople/channel/channel_info/channel_info.etc|0644|required|神迹频道侧 channel_amd64 依赖的频道信息
+home/neople/channel/channel_info/version|rootfs/home/template/neople/channel/channel_info/version|0644|required|神迹频道侧频道信息版本号
+dp2/df_game_r.lua|rootfs/home/template/init/dp.tgz|0644|required|神迹 DP Lua 逻辑脚本，会与清风基底 dp2.tgz 合并后重新打包
+dp2/df_game_r.js|rootfs/home/template/init/dp.tgz|0644|required|神迹 DP JS 逻辑脚本，会与清风基底 dp2.tgz 合并后重新打包
+dp2/libdp2pre.so|rootfs/home/template/init/dp.tgz|0755|required|神迹预加载库，落到清风约定的 libhook.so 路径后再重新打包
