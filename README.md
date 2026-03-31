@@ -15,19 +15,6 @@
 
 ---
 
-## 镜像 Tag 说明
-
-| 类型 | 格式 | 示例 |
-|------|------|------|
-| Release Latest | `<os>-qf1031-latest` | `debian13-qf1031-latest` |
-| Release | `<os>-qf1031-<日期>` | `debian13-qf1031-20260331` |
-| Dev Latest | `<os>-qf1031-dev-latest` | `debian13-qf1031-dev-latest` |
-| Dev | `<os>-qf1031-dev-<commit id>` | `debian13-qf1031-dev-a1b2c3d` |
-
-其中 `<os>` 为 `debian13`、`alma9`、`ubuntu26`、`centos7` 之一。开发版镜像在每次 push 到 main 分支时生成。
-
----
-
 <a id="quick-start"></a>
 ## 快速开始
 

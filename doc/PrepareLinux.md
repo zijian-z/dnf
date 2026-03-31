@@ -81,7 +81,7 @@ sysctl -p
 
 镜像同时发布到以下仓库，内容完全一致，选择速度最快的即可。
 
-### Tag 说明
+## 镜像 Tag 说明
 
 | 类型 | 格式 | 示例 |
 |------|------|------|
@@ -90,7 +90,7 @@ sysctl -p
 | Dev Latest | `<os>-qf1031-dev-latest` | `debian13-qf1031-dev-latest` |
 | Dev | `<os>-qf1031-dev-<commit id>` | `debian13-qf1031-dev-a1b2c3d` |
 
-其中 `<os>` 为 `debian13`、`alma9`、`ubuntu26`、`centos7` 之一。`latest` 始终指向最新的 Release 镜像，`dev-latest` 始终指向最新的开发版镜像。开发版镜像在每次 push 到 main 分支时生成。
+其中 `<os>` 为 `debian13`、`alma9`、`ubuntu26`、`centos7` 之一。开发版镜像在每次 push 到 main 分支时生成。
 
 ### 阿里云 ACR (国内拉取加速)
 
