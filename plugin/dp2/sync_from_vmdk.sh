@@ -21,6 +21,8 @@ NBD_DEV=""
 MOUNT_DIR=""
 VG_NAME=""
 VG_NAMES=()
+LVM_DEVICE_LIST=""
+LVM_COMMON_ARGS=()
 SOURCE_ROOT_MARKER_MIN_SCORE=2
 SOURCE_ROOT_REQUIRED_FILES=(
   "home/neople/game/Script.pvf"
@@ -61,7 +63,7 @@ cleanup() {
   fi
   if (( ${#VG_NAMES[@]} > 0 )); then
     for vg_name in "${VG_NAMES[@]}"; do
-      sudo vgchange -an "$vg_name" >/dev/null 2>&1 || true
+      run_lvm vgchange -an "$vg_name" >/dev/null 2>&1 || true
     done
   fi
   if [[ -n "$NBD_DEV" ]]; then
@@ -83,6 +85,24 @@ find_free_nbd() {
     fi
   done
   return 1
+}
+
+prepare_lvm_common_args() {
+  local devs=""
+
+  devs=$(list_nbd_block_devices | cut -d'|' -f1 | paste -sd, -)
+  LVM_DEVICE_LIST="$devs"
+  LVM_COMMON_ARGS=(--config 'devices { use_devicesfile=0 }')
+  if [[ -n "$LVM_DEVICE_LIST" ]]; then
+    LVM_COMMON_ARGS+=(--devices "$LVM_DEVICE_LIST")
+  fi
+}
+
+run_lvm() {
+  local cmd="$1"
+  shift
+
+  sudo "$cmd" "${LVM_COMMON_ARGS[@]}" "$@"
 }
 
 count_source_root_markers() {
@@ -170,7 +190,7 @@ resolve_block_fstype() {
 }
 
 find_volume_groups_for_nbd() {
-  sudo pvs --noheadings --separator '|' -o pv_name,vg_name 2>/dev/null |
+  run_lvm pvs --noheadings --separator '|' -o pv_name,vg_name 2>/dev/null |
     awk -F'|' -v nbd="$NBD_DEV" '
       function trim(s) {
         gsub(/^[[:space:]]+|[[:space:]]+$/, "", s)
@@ -187,7 +207,7 @@ find_volume_groups_for_nbd() {
 }
 
 list_lvm_candidates_for_nbd() {
-  sudo lvs --noheadings --separator '|' -o lv_path,lv_size,devices,vg_name 2>/dev/null |
+  run_lvm lvs --noheadings --separator '|' -o lv_path,lv_size,devices,vg_name 2>/dev/null |
     awk -F'|' -v nbd="$NBD_DEV" '
       function trim(s) {
         gsub(/^[[:space:]]+|[[:space:]]+$/, "", s)
@@ -210,11 +230,11 @@ scan_lvm_devices_for_nbd() {
 
   while IFS='|' read -r dev dev_type dev_size; do
     [[ -n "$dev" ]] || continue
-    sudo pvscan --cache "$dev" >/dev/null 2>&1 || true
-    sudo pvscan --cache -aay "$dev" >/dev/null 2>&1 || true
+    run_lvm pvscan --cache "$dev" >/dev/null 2>&1 || true
+    run_lvm pvscan --cache -aay "$dev" >/dev/null 2>&1 || true
   done < <(list_nbd_block_devices)
 
-  sudo vgscan --mknodes >/dev/null 2>&1 || true
+  run_lvm vgscan --mknodes >/dev/null 2>&1 || true
   sudo udevadm settle
 }
 
@@ -262,6 +282,9 @@ attach_vmdk() {
   sleep 1
   VG_NAME=""
   VG_NAMES=()
+  LVM_DEVICE_LIST=""
+  LVM_COMMON_ARGS=()
+  prepare_lvm_common_args
   scan_lvm_devices_for_nbd
 
   while read -r vg_name; do
