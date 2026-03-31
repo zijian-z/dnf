@@ -225,16 +225,17 @@ build_dp_archive() {
 copy_sidecar_files() {
   local source_root="$1"
   local out_dir="$2"
+  local source_scripts_dir="$out_dir/rootfs/opt/shenji-overlay-meta/source_scripts"
 
-  rm -rf "$out_dir/gm" "$out_dir/meta/source_scripts"
-  mkdir -p "$out_dir/gm" "$out_dir/meta/source_scripts"
+  rm -rf "$out_dir/gm" "$source_scripts_dir"
+  mkdir -p "$out_dir/gm" "$source_scripts_dir"
 
   sudo cp -a "$source_root/root/dist" "$out_dir/gm/dist"
-  sudo cp -a "$source_root/root/run" "$out_dir/meta/source_scripts/run"
-  sudo cp -a "$source_root/root/run_nopvp" "$out_dir/meta/source_scripts/run_nopvp"
-  sudo cp -a "$source_root/root/stop" "$out_dir/meta/source_scripts/stop"
+  sudo cp -a "$source_root/root/run" "$source_scripts_dir/run"
+  sudo cp -a "$source_root/root/run_nopvp" "$source_scripts_dir/run_nopvp"
+  sudo cp -a "$source_root/root/stop" "$source_scripts_dir/stop"
   sudo chown -R "$(id -u):$(id -g)" "$out_dir/gm"
-  sudo chown -R "$(id -u):$(id -g)" "$out_dir/meta/source_scripts"
+  sudo chown -R "$(id -u):$(id -g)" "$source_scripts_dir"
 }
 
 copy_support_files() {
@@ -335,12 +336,23 @@ EOF
 refresh_rootfs_meta() {
   local out_dir="$1"
   local meta_root="$out_dir/rootfs/opt/shenji-overlay-meta"
+  local source_scripts_tmp=""
+
+  if [[ -d "$meta_root/source_scripts" ]]; then
+    source_scripts_tmp=$(mktemp -d)
+    cp -a "$meta_root/source_scripts" "$source_scripts_tmp/source_scripts"
+  fi
 
   rm -rf "$meta_root"
   mkdir -p "$meta_root"
 
   if [[ -d "$out_dir/meta" ]]; then
     cp -a "$out_dir/meta"/. "$meta_root"/
+  fi
+
+  if [[ -n "$source_scripts_tmp" ]] && [[ -d "$source_scripts_tmp/source_scripts" ]]; then
+    cp -a "$source_scripts_tmp/source_scripts" "$meta_root/source_scripts"
+    rm -rf "$source_scripts_tmp"
   fi
 }
 

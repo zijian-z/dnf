@@ -140,16 +140,14 @@ deploy/dnf/docker-compose/shenji_overlay/meta/db_compare/
 
 主说明见:
 
-- `doc/ShenjiOverlay.md`
+- `deploy/dnf/docker-compose/shenji_overlay/README.md`
 
-其中还额外补充了两类常见问题:
+它已经合并了:
 
-- 哪些文件仍然支持外部卷优先覆盖
-- VMDK 中关键 `.so` 的职责分析
-
-详细的 `.so` 分析见:
-
-- `doc/ShenjiSoAnalysis.md`
+- overlay 核心流程
+- Release 部署说明
+- 运行时覆盖规则
+- 关键 `.so` 的职责摘要
 
 ## 手工 DP 使用方式
 
