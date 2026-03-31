@@ -10,4 +10,4 @@ stdout_logfile=/data/log/channel.log
 redirect_stderr=true
 stdout_logfile_maxbytes=1MB
 stderr_logfile_maxbytes=1MB
-depend=bridge
+priority=900

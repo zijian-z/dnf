@@ -108,7 +108,7 @@ for num in $numbers; do
     echo "redirect_stderr=true" >> /etc/supervisor/conf.d/channel.conf
     echo "stdout_logfile_maxbytes=1MB" >> /etc/supervisor/conf.d/channel.conf
     echo "stderr_logfile_maxbytes=1MB" >> /etc/supervisor/conf.d/channel.conf
-    echo "depend=channel" >> /etc/supervisor/conf.d/channel.conf
+    echo "priority=2000" >> /etc/supervisor/conf.d/channel.conf
     continue
   fi
   echo "invalid channel number: $num"
