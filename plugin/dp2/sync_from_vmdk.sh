@@ -20,6 +20,7 @@ GM_DIST_PAYLOAD_REL="payload/gm_dist.tgz"
 NBD_DEV=""
 MOUNT_DIR=""
 VG_NAME=""
+VG_NAMES=()
 SOURCE_ROOT_MARKER_MIN_SCORE=2
 SOURCE_ROOT_REQUIRED_FILES=(
   "home/neople/game/Script.pvf"
@@ -109,37 +110,89 @@ mount_candidate_readonly() {
 }
 
 list_source_root_candidates() {
+  local dev dev_size dev_fstype vg_name
+
   {
-    lsblk -nrpo NAME,FSTYPE,TYPE,SIZE "$NBD_DEV" |
-      awk '($3 == "part" || $3 == "lvm") && NF >= 4 { print $1, $2, $4 }'
-    if [[ -n "$VG_NAME" ]]; then
-      while read -r lv_path lv_size; do
-        local lv_fstype=""
-        [[ -n "$lv_path" && -n "$lv_size" ]] || continue
-        lv_fstype=$(lsblk -nrpo FSTYPE "$lv_path" 2>/dev/null | awk 'NF {print $1; exit}')
-        [[ -n "$lv_fstype" ]] || continue
-        echo "$lv_path $lv_fstype $lv_size"
-      done < <(sudo lvs --noheadings -o lv_path,lv_size "$VG_NAME" 2>/dev/null)
-    else
-      while read -r lv_path lv_size; do
-        local lv_fstype=""
-        [[ -n "$lv_path" && -n "$lv_size" ]] || continue
-        lv_fstype=$(lsblk -nrpo FSTYPE "$lv_path" 2>/dev/null | awk 'NF {print $1; exit}')
-        [[ -n "$lv_fstype" ]] || continue
-        echo "$lv_path $lv_fstype $lv_size"
-      done < <(sudo lvs --noheadings -o lv_path,lv_size 2>/dev/null)
+    while read -r dev dev_size; do
+      [[ -n "$dev" ]] || continue
+      dev_fstype=$(resolve_block_fstype "$dev")
+      [[ -n "$dev_fstype" ]] || dev_fstype="unknown"
+      echo "$dev $dev_fstype $dev_size"
+    done < <(
+      lsblk -nrpo NAME,TYPE,SIZE "$NBD_DEV" |
+        awk '($2 == "disk" || $2 == "part") && NF >= 3 { print $1, $3 }'
+    )
+
+    if (( ${#VG_NAMES[@]} > 0 )); then
+      for vg_name in "${VG_NAMES[@]}"; do
+        while read -r lv_path lv_size; do
+          local lv_fstype=""
+          [[ -n "$lv_path" && -n "$lv_size" ]] || continue
+          lv_fstype=$(resolve_block_fstype "$lv_path")
+          [[ -n "$lv_fstype" ]] || lv_fstype="unknown"
+          echo "$lv_path $lv_fstype $lv_size"
+        done < <(sudo lvs --noheadings -o lv_path,lv_size "$vg_name" 2>/dev/null)
+      done
     fi
   } |
-    awk '$2 ~ /^(ext2|ext3|ext4|xfs|btrfs)$/ { print $1, $2, $3 }' |
     awk '!seen[$1]++' |
     sort -k3h -r
+}
+
+resolve_block_fstype() {
+  local dev="$1"
+  local fstype=""
+
+  fstype=$(lsblk -nrpo FSTYPE "$dev" 2>/dev/null | awk 'NF {print $1; exit}')
+  if [[ -z "$fstype" ]]; then
+    fstype=$(sudo blkid -o value -s TYPE "$dev" 2>/dev/null | awk 'NF {print $1; exit}')
+  fi
+
+  echo "$fstype"
+}
+
+find_volume_groups_for_nbd() {
+  local dev vg_name
+
+  while read -r dev; do
+    [[ -n "$dev" ]] || continue
+    while read -r vg_name; do
+      [[ -n "$vg_name" ]] || continue
+      echo "$vg_name"
+    done < <(sudo pvs --noheadings -o vg_name "$dev" 2>/dev/null | awk 'NF {print $1; exit}')
+  done < <(
+    lsblk -nrpo NAME,TYPE "$NBD_DEV" |
+      awk '($2 == "disk" || $2 == "part") { print $1 }'
+  )
+}
+
+print_nbd_layout() {
+  local dev type size fstype vg_name
+
+  while read -r dev type size; do
+    [[ -n "$dev" ]] || continue
+    fstype=$(resolve_block_fstype "$dev")
+    [[ -n "$fstype" ]] || fstype="-"
+    echo "  $dev [$type $size] fstype=$fstype" >&2
+  done < <(lsblk -nrpo NAME,TYPE,SIZE "$NBD_DEV")
+
+  if (( ${#VG_NAMES[@]} > 0 )); then
+    for vg_name in "${VG_NAMES[@]}"; do
+      while read -r dev size; do
+        [[ -n "$dev" && -n "$size" ]] || continue
+        fstype=$(resolve_block_fstype "$dev")
+        [[ -n "$fstype" ]] || fstype="-"
+        echo "  $dev [lvm $size] fstype=$fstype" >&2
+      done < <(sudo lvs --noheadings -o lv_path,lv_size "$vg_name" 2>/dev/null)
+    done
+  fi
 }
 
 attach_vmdk() {
   local vmdk_path="$1"
   local candidate candidate_fstype candidate_size
   local root_dev="" root_fstype="" best_score=0 candidate_score
-  local pv_path=""
+  local vg_name
   local -a candidate_reports=()
 
   command -v qemu-nbd >/dev/null || {
@@ -155,18 +208,31 @@ attach_vmdk() {
 
   sudo qemu-nbd --read-only --connect="$NBD_DEV" "$vmdk_path"
   sudo udevadm settle
+  sudo blockdev --rereadpt "$NBD_DEV" >/dev/null 2>&1 || true
+  sudo partprobe "$NBD_DEV" >/dev/null 2>&1 || true
+  sudo udevadm settle
   sleep 1
-  pv_path=$(lsblk -nrpo NAME,FSTYPE,TYPE "$NBD_DEV" | awk '$2 == "LVM2_member" { print $1; exit }')
   VG_NAME=""
-  if [[ -n "$pv_path" ]]; then
-    VG_NAME=$(sudo pvs --noheadings -o vg_name "$pv_path" 2>/dev/null | awk 'NF {print $1; exit}')
+  VG_NAMES=()
+
+  while read -r vg_name; do
+    [[ -n "$vg_name" ]] || continue
+    VG_NAMES+=("$vg_name")
+  done < <(find_volume_groups_for_nbd | awk '!seen[$0]++')
+
+  if (( ${#VG_NAMES[@]} > 0 )); then
+    VG_NAME="${VG_NAMES[0]}"
+    for vg_name in "${VG_NAMES[@]}"; do
+      sudo vgchange -an "$vg_name" >/dev/null 2>&1 || true
+    done
   fi
-  if [[ -n "$VG_NAME" ]]; then
-    sudo vgchange -an "$VG_NAME" >/dev/null 2>&1 || true
-  fi
+
   sudo vgscan --mknodes >/dev/null 2>&1 || true
-  if [[ -n "$VG_NAME" ]]; then
-    sudo vgchange -ay "$VG_NAME" >/dev/null 2>&1 || true
+
+  if (( ${#VG_NAMES[@]} > 0 )); then
+    for vg_name in "${VG_NAMES[@]}"; do
+      sudo vgchange -ay "$vg_name" >/dev/null 2>&1 || true
+    done
   else
     sudo vgchange -ay >/dev/null 2>&1 || true
   fi
@@ -200,6 +266,11 @@ attach_vmdk() {
 
   if [[ -z "$root_dev" ]] || (( best_score < SOURCE_ROOT_MARKER_MIN_SCORE )); then
     echo "未能在 $NBD_DEV 中识别出包含神迹文件的根分区" >&2
+    echo "块设备布局:" >&2
+    print_nbd_layout
+    if (( ${#VG_NAMES[@]} > 0 )); then
+      echo "已识别卷组: ${VG_NAMES[*]}" >&2
+    fi
     if (( ${#candidate_reports[@]} > 0 )); then
       echo "已检查候选分区:" >&2
       printf '  %s\n' "${candidate_reports[@]}" >&2
@@ -431,6 +502,16 @@ main() {
     usage
     exit 1
   }
+
+  if [[ -e "$out_dir" && ! -d "$out_dir" ]]; then
+    echo "输出路径已存在且不是目录: $out_dir" >&2
+    exit 1
+  fi
+
+  if [[ "$out_dir" =~ \.sql(\.gz)?$ ]]; then
+    echo "警告: sync_from_vmdk.sh 的第二个参数是输出目录，不是 SQL dump 路径" >&2
+    echo "如果要一键处理 VMDK 和 SQL，请执行: plugin/dp2/update_from_vmdk.sh <VMDK文件> <SQL文件>" >&2
+  fi
 
   trap cleanup EXIT
 
