@@ -34,10 +34,16 @@ RUN MYSQL=mysql-5.7.44-linux-glibc2.12-x86_64 && \
     (cp ${MYSQL}/share/*.sql ${MYSQL}/share/errmsg-utf8.txt /mysql/share/ 2>/dev/null; true) && \
     rm -rf /tmp/*
 
+COPY build/libdlopen_compat/ /compat-src/
+
 # Build dnf-compat-layer workspace for i686-unknown-linux-gnu target
 ARG DNF_COMPAT_LAYER_VERSION="0.1.0"
 RUN git clone --branch ${DNF_COMPAT_LAYER_VERSION} --depth 1 https://github.com/llnut/dnf-compat-layer.git /src \
-    && cd /src && cargo build --workspace --release --target i686-unknown-linux-gnu
+    && cd /src && cargo build --workspace --release --target i686-unknown-linux-gnu \
+    && gcc -m32 -shared -fPIC /compat-src/libdlopen_compat.c \
+       -Wl,--version-script=/compat-src/libdlopen_compat.map \
+       -o /compat-src/libdlopen_compat.so \
+       -ldl
 
 FROM ubuntu:resolute
 
@@ -82,6 +88,7 @@ COPY --from=builder /usr/local/share/GeoIP /usr/local/share/GeoIP
 COPY --from=builder /mysql/bin/ /usr/local/mysql/bin/
 COPY --from=builder /mysql/lib/ /usr/local/mysql/lib/
 COPY --from=builder /mysql/share/ /usr/local/mysql/share/
+COPY --from=builder /compat-src/libdlopen_compat.so /usr/lib/libdlopen_compat.so
 COPY --from=builder /src/target/i686-unknown-linux-gnu/release/libglibc_compat.so /usr/lib/libglibc_compat.so
 COPY --from=builder /src/target/i686-unknown-linux-gnu/release/libgeoip_compat.so /lib/i386-linux-gnu/libGeoIP.so.1
 
@@ -187,7 +194,7 @@ RUN sed -i 's/awk \x27{print \$2}\x27/grep -oP "ERROR \\\\K[0-9]+"/g' /home/temp
     # gunnersvr: add glibc-compat
     && sed -i 's|\./gunnersvr|LD_PRELOAD=/usr/lib/libglibc_compat.so ./gunnersvr|g' /home/template/init/run/start_gunnersvr.sh \
     # df_game_r: prepend glibc-compat to existing LD_PRELOAD
-    && sed -i 's|LD_PRELOAD="/dp2/libhook.so:/home/neople/game/frida.so" \./df_game_r|LD_PRELOAD="/usr/lib/libglibc_compat.so:/dp2/libhook.so:/home/neople/game/frida.so" ./df_game_r|g' /home/template/init/run/start_game.sh \
+    && sed -i 's|LD_PRELOAD="/dp2/libhook.so:/home/neople/game/frida.so" \./df_game_r|LD_PRELOAD="/usr/lib/libdlopen_compat.so:/usr/lib/libglibc_compat.so:/dp2/libhook.so:/home/neople/game/frida.so" ./df_game_r|g' /home/template/init/run/start_game.sh \
     # Adapt my.cnf for MySQL 5.7
     && sed -i 's/skip-locking/#skip-locking/g; s/skip-federated/#skip-federated/g' /etc/my.cnf \
     && sed -i 's/^key_buffer =/key_buffer_size =/g; s/^table_cache =/table_open_cache =/g' /etc/my.cnf \

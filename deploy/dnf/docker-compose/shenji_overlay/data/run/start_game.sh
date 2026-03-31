@@ -53,7 +53,8 @@ if [ -n "${old_pid}" ]; then
 fi
 rm -rf "pid/${channel_name}.pid"
 
-preload_chain="/usr/lib/libglibc_compat.so:/dp2/libhook.so"
+# frida.so 仍会在进程内被 dp2 额外 dlopen，一些神迹库还依赖旧 glibc 的私有入口。
+preload_chain="/usr/lib/libdlopen_compat.so:/usr/lib/libglibc_compat.so:/dp2/libhook.so"
 
 # 神迹原始 run 语义: 游戏进程并不是挂 frida.so，而是挂 libfd.so。
 if [ -f /data/libfd.so ]; then

@@ -1,10 +1,6 @@
 name: docker
 
 on:
-  push:
-    branches: [ "master", "main" ]
-  release:
-    types: [ published ]
   workflow_dispatch:
     inputs:
       tags:
@@ -51,10 +47,7 @@ jobs:
           GHCR_IMAGE="ghcr.io/llnut/dnf"
           OS="${{ matrix.os }}"
 
-          if [ "${{ github.event_name }}" == "release" ]; then
-            DATE=$(echo "${{ github.event.release.tag_name }}" | sed 's/^Release-//')
-            TAG="${OS}-qf1031-${DATE}"
-          elif [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ github.event.inputs.tags }}" ]; then
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ github.event.inputs.tags }}" ]; then
             DATE=$(echo "${{ github.event.inputs.tags }}" | sed 's/^Release-//')
             TAG="${OS}-qf1031-${DATE}"
           else
