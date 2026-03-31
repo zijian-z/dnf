@@ -214,6 +214,20 @@ GATE_ENV="GAME_SERVER_IP=\"${GAME_SERVER_IP:-$PUBLIC_IP}\",DB_HOST=\"$CUR_MAIN_D
 GATE_ENV="${GATE_ENV//%/%%}"
 GATE_ENV=$(printf '%s' "$GATE_ENV" | sed 's/[\\&]/\\&/g')
 sed -i "s|^environment=.*|environment=$GATE_ENV|" /etc/supervisor/conf.d/gate.conf
+# 确保MySQL就绪后再启动服务
+bash /home/template/init/wait_for_mysql.sh "$CUR_MAIN_DB_HOST" "$CUR_MAIN_DB_PORT" "$CUR_MAIN_DB_ROOT_PASSWORD"
+if [ $? -ne 0 ]; then
+  echo "main db readiness check failed, aborting."
+  exit 1
+fi
+# 主数据库和大区数据库可能在不同的主机上
+if [ "$CUR_SG_DB_HOST" != "$CUR_MAIN_DB_HOST" ] || [ "$CUR_SG_DB_PORT" != "$CUR_MAIN_DB_PORT" ]; then
+  bash /home/template/init/wait_for_mysql.sh "$CUR_SG_DB_HOST" "$CUR_SG_DB_PORT" "$CUR_SG_DB_ROOT_PASSWORD"
+  if [ $? -ne 0 ]; then
+    echo "server group db readiness check failed, aborting."
+    exit 1
+  fi
+fi
 # 切换到主目录
 cd /root
 supervisord -c /etc/supervisord.conf

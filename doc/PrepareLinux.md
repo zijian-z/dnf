@@ -1,28 +1,29 @@
 # 准备部署环境
 
-本指南主要涵盖Docker软件安装、交换空间配置以及关闭防火墙这三个方面。如果您对这些基本配置已经很熟悉，可以直接跳过本指南。
+本指南包含 Docker 安装、交换空间配置和防火墙关闭三个部分。如果已完成这些配置，可以跳过。
 
-## 安装Docker环境(CentOS 6/7)
+## 安装 Docker
 
-先升级 yum 源
+升级系统
 
 ```shell
 yum update -y
 ```
 
-下载 docker 安装脚本
+或
+
+```shell
+apt-get update && apt-get upgrade -y
+```
+
+下载并运行 Docker 安装脚本
 
 ```shell
 curl -fsSL https://get.docker.com -o get-docker.sh
-```
-
-运行安装 docker 的脚本
-
-```shell
 sudo sh get-docker.sh
 ```
 
-启动 docker
+启动 Docker
 
 ```shell
 systemctl enable docker
@@ -36,13 +37,16 @@ systemctl disable firewalld
 systemctl stop firewalld
 ```
 
-关闭 selinux
+关闭 SELinux
 
 ```shell
-sudo sed -i 's/SELINUX=enforcing/SELINUX=disabled/' /etc/selinux/config
+setenforce 0
+sed -i "s/^SELINUX=.*$/SELINUX=disabled/" /etc/selinux/config
 ```
 
-## 配置交换空间（若内存不足 8GB）
+## 配置交换空间
+
+当物理内存不足 8GB 时，需要配置交换空间。
 
 创建 Swap 文件
 
@@ -53,23 +57,21 @@ swapon /var/swap.1
 sed -i '$a /var/swap.1 swap swap default 0 0' /etc/fstab
 ```
 
-查看系统是否已启用 Swap
+查看 Swap 是否已启用
 
 ```shell
 sysctl vm.swappiness
 ```
 
-如果输出最后的数字不为 0，则代表已经启用 Swap，可不做处理。
+如果输出的数字不为 0，说明 Swap 已启用，无需额外操作。
 
-如果输出最后的数字为 0，则使用下面的命令添加 Swap 配置（设定为比起内存，优先使用 Swap）
+如果输出为 0，执行以下命令启用 Swap。值为 100 表示优先使用虚拟内存，值为 0 表示优先使用物理内存。少量玩家场景下体感差异不大。
 
 ```shell
-# 其中的 100 也可以进行修改，100 代表尽可能使用虚拟内存，0 代表尽可能使用物理内存
-# 物理内存远快于虚拟内存，但对于 DNF 服务来说，个位数玩家在玩时，基本体会不到差异
 sed -i '$a vm.swappiness = 100' /etc/sysctl.conf
 ```
 
-重新启动服务器，或执行以下命令使 Swap 配置生效：
+重启服务器，或执行以下命令使配置生效
 
 ```shell
 sysctl -p
@@ -77,14 +79,19 @@ sysctl -p
 
 ## 拉取镜像
 
-点击查看所有镜像版本: [记得点赞三连，帮助更多人了解到该镜像](https://hub.docker.com/repository/docker/llnut/dnf)
+所有镜像版本请查看 [Docker Hub](https://hub.docker.com/repository/docker/llnut/dnf)。
 
-最新可用的镜像版本如下所示:
+可用的镜像版本
+
 ```shell
 llnut/dnf:debian13-qf1031-latest
+llnut/dnf:ubuntu26-qf1031-latest
+llnut/dnf:alma9-qf1031-latest
+llnut/dnf:centos7-qf1031-latest
 ```
 
-您可使用如下命令拉取镜像，例如：
+拉取示例
+
 ```shell
 docker pull llnut/dnf:debian13-qf1031-latest
 ```
