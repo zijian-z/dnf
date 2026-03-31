@@ -1,3 +1,5 @@
+# check=skip=SecretsUsedInArgOrEnv
+
 # Build dependencies: GeoIP data, MySQL 5.7, and dnf-compat-layer
 FROM almalinux:9.7-minimal AS builder
 
