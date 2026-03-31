@@ -1,4 +1,4 @@
-name: docker
+name: ci
 
 on:
   workflow_dispatch:
@@ -49,17 +49,20 @@ jobs:
           ACR_IMAGE="${{ secrets.ACR_REGISTRY }}/llnut/dnf"
           OS="${{ matrix.os }}"
 
+          IS_RELEASE=false
           if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ github.event.inputs.tags }}" ]; then
+            IS_RELEASE=true
             DATE=$(echo "${{ github.event.inputs.tags }}" | sed 's/^Release-//')
             TAG="${OS}-qf1031-${DATE}"
           else
             SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-            TAG="${OS}-qf1031-${SHORT_SHA}"
+            TAG="${OS}-qf1031-dev-${SHORT_SHA}"
           fi
 
           TAGS="${DOCKERHUB_IMAGE}:${TAG},${GHCR_IMAGE}:${TAG},${QUAY_IMAGE}:${TAG},${ACR_IMAGE}:${TAG}"
           echo "tags=${TAGS}" >> "$GITHUB_OUTPUT"
           echo "image_tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "is_release=${IS_RELEASE}" >> "$GITHUB_OUTPUT"
 
       - name: Login to Docker Hub
         uses: docker/login-action@v4
@@ -99,3 +102,21 @@ jobs:
           tags: ${{ steps.tags.outputs.tags }}
           cache-from: type=gha,scope=${{ matrix.os }}
           cache-to: type=gha,mode=max,scope=${{ matrix.os }}
+
+      - name: Tag latest
+        run: |
+          TAG="${{ steps.tags.outputs.image_tag }}"
+          if [ "${{ steps.tags.outputs.is_release }}" == "true" ]; then
+            LATEST="${{ matrix.os }}-qf1031-latest"
+          else
+            LATEST="${{ matrix.os }}-qf1031-dev-latest"
+          fi
+          IMAGES=(
+            "llnut/dnf"
+            "ghcr.io/llnut/dnf"
+            "quay.io/llnut/dnf"
+            "${{ secrets.ACR_REGISTRY }}/llnut/dnf"
+          )
+          for IMAGE in "${IMAGES[@]}"; do
+            docker buildx imagetools create --tag "${IMAGE}:${LATEST}" "${IMAGE}:${TAG}"
+          done
