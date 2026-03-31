@@ -18,6 +18,7 @@ if [ -z "$MAIN_MYSQL_HOST" ] && [ -z "$MAIN_MYSQL_PORT" ] && [ -z "$MYSQL_HOST" 
 
   # 修改创建root账号
   service mysql start --skip-grant-tables
+  bash /home/template/init/wait_for_mysql.sh
   mysql -u root <<EOF
     delete from mysql.user;
     flush privileges;
@@ -29,4 +30,5 @@ EOF
   service mysql stop
   echo "start local mysql...."
   service mysql start
+  bash /home/template/init/wait_for_mysql.sh
 fi
