@@ -310,34 +310,144 @@ docker compose logs -f godofgm
 
 ## 关键模块说明
 
-这部分把原先几份文档里的重点压成一个最短结论。
+这部分对应原先 `.so` 分析文档的收敛版，不做完整逆向，但保留当前迁移最需要的判断依据。
+
+判断依据主要来自三类信息:
+
+- 当前仓库里的启动脚本与 overlay 文件
+- 神迹同步出的 `dp2` / `libfd.so` / `df_game_r.lua`
+- 历史源码快照与静态分析结论
+
+### 启动链总览
+
+当前神迹游戏进程的真实链路，不是“只挂一个 `frida.so`”这么简单，而是:
+
+1. `LD_PRELOAD` 先挂 `/dp2/libhook.so`
+2. `libhook.so` 实际来自神迹 `libdp2pre.so`，负责把 `/dp2/libdp2.so` 拉起来
+3. `libdp2.so` 初始化 DP2 运行环境
+4. `libdp2.xml` 把 `df_game_r`、`df_game_r.lua`、`libdp2game.so` 串起来
+5. 游戏进程额外挂 `libfd.so`
+6. 只有 `libfd.so` 缺失时，启动脚本才回退到 `frida.so`
+
+这也是为什么当前 overlay 不只是保留一个 `frida.so`，而是保留整套 `dp.tgz + libfd.so + 启动脚本`。
 
 ### `libhook.so`
 
 - 实际来源是神迹 `libdp2pre.so`
 - 它是 DP2 的预加载引导器
 - 负责把 `/dp2/libdp2.so` 拉起来
+- 它不是主要玩法逻辑承载层
+
+从历史静态分析看，它的关键点是:
+
+- `SONAME` 仍然是 `libdp2pre.so`
+- 字符串里能看到 `/dp2/libdp2.so`
+- 会触发 `dp2_init`
 
 ### `libdp2.so`
 
 - DP2 核心装载器
 - 负责初始化 DP2 运行环境
+- 会承接 `libhook.so` 拉起后的后续流程
+- 历史静态分析里可以看到 `dp2_init`、`dp2_frida_resolver` 一类符号
 
 ### `libdp2game.so`
 
 - 游戏侧插件桥接层
 - 给 `df_game_r.lua` 暴露游戏接口
+- 它不是完整玩法逻辑本体，更像 Lua 与游戏进程之间的桥
+
+和它配套的还包括:
+
+- `liblua53.so`
+- `libuv.so`
+- `luv.so`
+- `luasql/mysql.so`
+- `luasql/sqlite3.so`
+
+这些更接近“DP2 执行环境”而不是单独业务补丁。
+
+### `libdp2.xml`
+
+`libdp2.xml` 的含义很关键，因为它把 DP2 的主链路写死了:
+
+- 目标进程是 `df_game_r`
+- 主脚本是 `/dp2/df_game_r.lua`
+- 插件是 `/dp2/lib/libdp2game.so`
+- 还会声明 Lua / uv 一类依赖
+
+这说明:
+
+- 玩法逻辑并不都写在 `.so` 里
+- 很多规则其实落在 `df_game_r.lua`
+- `.so` 更多承担“注入入口 + 运行时 + 桥接层”的职责
 
 ### `frida.so`
 
 - 通用 Frida Gadget
 - 不是神迹专属玩法补丁本体
+- 更适合理解成通用动态插桩运行时
+
+当前启动语义不是优先使用它，而是:
+
+1. 先挂 `libhook.so`
+2. 优先挂 `libfd.so`
+3. `libfd.so` 缺失时再回退到 `frida.so`
+
+README 前面的运行日志和当前 `start_game.sh` 也对应这条逻辑。
 
 ### `libfd.so`
 
 - 神迹最关键的业务补丁模块
 - 会直接改写 `df_game_r` 进程行为
 - 当前启动链路里它比 `frida.so` 更关键
+
+它和上面的 DP2 不是同一层。
+
+根据历史源码快照，`libfd.so` 有几个关键特征:
+
+- 使用 `constructor` / `destructor`，说明库加载和卸载时会自动执行逻辑
+- 会直接调用 Frida Gum 一类能力改写进程行为，而不是只做普通函数调用
+- 里面包含大量业务级 patch，而不是单纯启动一个通用 Gadget
+
+这也是为什么它应被理解为“核心行为补丁”，而不是“可有可无的附加库”。
+
+另外一个容易忽略的点是: `libfd.so` 还会主动接数据库。
+
+根据历史源码快照，它会:
+
+- 访问 `taiwan_cain`
+- 访问 `d_guild`
+- 创建 `frida` 数据库
+- 创建 `frida.charac_ex` 一类扩展表
+
+这解释了为什么迁移时即使清风初始化 SQL 里没有 `frida` 库，神迹实际运行后仍可能把它建出来。
+
+### `df_game_r.lua`
+
+虽然这里分析的是 `.so`，但 `df_game_r.lua` 不能分开看。
+
+它能帮助判断真实职责划分:
+
+- Lua 脚本里承载了大量玩法规则
+- `.so` 更偏向负责注入、装载、运行时与桥接
+- 所以迁移时不能只盯着几个 `.so`，还必须保留整套 `dp` 内容
+
+### 对 overlay 方案的影响
+
+基于上面的分析，当前 overlay 里的几个取舍是有依据的:
+
+1. 必须保留 `libhook.so`
+2. 必须保留 `libdp2.so + libdp2game.so + Lua 运行时`
+3. 必须优先保留 `libfd.so`
+4. `frida.so` 应视为回退项，不应误判为主逻辑本体
+5. `dp.tgz` 必须和 `libfd.so` 一起看，不能拆成孤立文件处理
+
+### 当前分析边界
+
+这部分目前属于“静态分析 + 历史源码快照 + 当前启动脚本交叉验证”，还不是完整逆向。
+
+但对于当前 overlay 设计、迁移判断、文件保留优先级和问题排查，已经够用。
 
 ## 常看产物
 
