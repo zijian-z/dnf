@@ -48,7 +48,7 @@ EOF
 }
 
 cleanup() {
-  local stale_mp
+  local stale_mp vg_name
   for stale_mp in /tmp/shenji-vmdk.*; do
     [[ -e "$stale_mp" ]] || continue
     if mountpoint -q "$stale_mp"; then
@@ -58,6 +58,11 @@ cleanup() {
   done
   if [[ -n "$MOUNT_DIR" ]] && mountpoint -q "$MOUNT_DIR"; then
     sudo umount "$MOUNT_DIR" >/dev/null 2>&1 || true
+  fi
+  if (( ${#VG_NAMES[@]} > 0 )); then
+    for vg_name in "${VG_NAMES[@]}"; do
+      sudo vgchange -an "$vg_name" >/dev/null 2>&1 || true
+    done
   fi
   if [[ -n "$NBD_DEV" ]]; then
     sudo qemu-nbd --disconnect "$NBD_DEV" >/dev/null 2>&1 || true
@@ -109,31 +114,44 @@ mount_candidate_readonly() {
   esac
 }
 
+list_nbd_block_devices() {
+  lsblk -nrpo NAME,TYPE,SIZE "$NBD_DEV" |
+    awk '($2 == "disk" || $2 == "part") && NF >= 3 { print $1 "|" $2 "|" $3 }'
+}
+
+device_has_partitions() {
+  local dev="$1"
+
+  lsblk -nrpo NAME,TYPE "$dev" 2>/dev/null |
+    awk '$1 != "'"$dev"'" && $2 == "part" { found=1 } END { exit(found ? 0 : 1) }'
+}
+
 list_source_root_candidates() {
-  local dev dev_size dev_fstype vg_name
+  local dev dev_type dev_size dev_fstype
+  local lv_path lv_size lv_vg lv_fstype
 
   {
-    while read -r dev dev_size; do
+    while IFS='|' read -r dev dev_type dev_size; do
       [[ -n "$dev" ]] || continue
       dev_fstype=$(resolve_block_fstype "$dev")
+      case "$dev_fstype" in
+        LVM2_member|linux_raid_member|swap)
+          continue
+          ;;
+      esac
+      if [[ "$dev_type" == "disk" ]] && device_has_partitions "$dev"; then
+        continue
+      fi
       [[ -n "$dev_fstype" ]] || dev_fstype="unknown"
       echo "$dev $dev_fstype $dev_size"
-    done < <(
-      lsblk -nrpo NAME,TYPE,SIZE "$NBD_DEV" |
-        awk '($2 == "disk" || $2 == "part") && NF >= 3 { print $1, $3 }'
-    )
+    done < <(list_nbd_block_devices)
 
-    if (( ${#VG_NAMES[@]} > 0 )); then
-      for vg_name in "${VG_NAMES[@]}"; do
-        while read -r lv_path lv_size; do
-          local lv_fstype=""
-          [[ -n "$lv_path" && -n "$lv_size" ]] || continue
-          lv_fstype=$(resolve_block_fstype "$lv_path")
-          [[ -n "$lv_fstype" ]] || lv_fstype="unknown"
-          echo "$lv_path $lv_fstype $lv_size"
-        done < <(sudo lvs --noheadings -o lv_path,lv_size "$vg_name" 2>/dev/null)
-      done
-    fi
+    while IFS='|' read -r lv_path lv_size lv_vg; do
+      [[ -n "$lv_path" && -n "$lv_size" ]] || continue
+      lv_fstype=$(resolve_block_fstype "$lv_path")
+      [[ -n "$lv_fstype" ]] || lv_fstype="unknown"
+      echo "$lv_path $lv_fstype $lv_size"
+    done < <(list_lvm_candidates_for_nbd)
   } |
     awk '!seen[$1]++' |
     sort -k3h -r
@@ -152,22 +170,56 @@ resolve_block_fstype() {
 }
 
 find_volume_groups_for_nbd() {
-  local dev vg_name
+  sudo pvs --noheadings --separator '|' -o pv_name,vg_name 2>/dev/null |
+    awk -F'|' -v nbd="$NBD_DEV" '
+      function trim(s) {
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", s)
+        return s
+      }
+      {
+        pv = trim($1)
+        vg = trim($2)
+        if (pv ~ "^" nbd && vg != "") {
+          print vg
+        }
+      }
+    '
+}
 
-  while read -r dev; do
+list_lvm_candidates_for_nbd() {
+  sudo lvs --noheadings --separator '|' -o lv_path,lv_size,devices,vg_name 2>/dev/null |
+    awk -F'|' -v nbd="$NBD_DEV" '
+      function trim(s) {
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", s)
+        return s
+      }
+      {
+        lv_path = trim($1)
+        lv_size = trim($2)
+        devices = trim($3)
+        vg_name = trim($4)
+        if (lv_path != "" && devices ~ nbd) {
+          print lv_path "|" lv_size "|" vg_name
+        }
+      }
+    '
+}
+
+scan_lvm_devices_for_nbd() {
+  local dev dev_type dev_size
+
+  while IFS='|' read -r dev dev_type dev_size; do
     [[ -n "$dev" ]] || continue
-    while read -r vg_name; do
-      [[ -n "$vg_name" ]] || continue
-      echo "$vg_name"
-    done < <(sudo pvs --noheadings -o vg_name "$dev" 2>/dev/null | awk 'NF {print $1; exit}')
-  done < <(
-    lsblk -nrpo NAME,TYPE "$NBD_DEV" |
-      awk '($2 == "disk" || $2 == "part") { print $1 }'
-  )
+    sudo pvscan --cache "$dev" >/dev/null 2>&1 || true
+    sudo pvscan --cache -aay "$dev" >/dev/null 2>&1 || true
+  done < <(list_nbd_block_devices)
+
+  sudo vgscan --mknodes >/dev/null 2>&1 || true
+  sudo udevadm settle
 }
 
 print_nbd_layout() {
-  local dev type size fstype vg_name
+  local dev type size fstype lv_path lv_size lv_vg
 
   while read -r dev type size; do
     [[ -n "$dev" ]] || continue
@@ -176,16 +228,12 @@ print_nbd_layout() {
     echo "  $dev [$type $size] fstype=$fstype" >&2
   done < <(lsblk -nrpo NAME,TYPE,SIZE "$NBD_DEV")
 
-  if (( ${#VG_NAMES[@]} > 0 )); then
-    for vg_name in "${VG_NAMES[@]}"; do
-      while read -r dev size; do
-        [[ -n "$dev" && -n "$size" ]] || continue
-        fstype=$(resolve_block_fstype "$dev")
-        [[ -n "$fstype" ]] || fstype="-"
-        echo "  $dev [lvm $size] fstype=$fstype" >&2
-      done < <(sudo lvs --noheadings -o lv_path,lv_size "$vg_name" 2>/dev/null)
-    done
-  fi
+  while IFS='|' read -r lv_path lv_size lv_vg; do
+    [[ -n "$lv_path" && -n "$lv_size" ]] || continue
+    fstype=$(resolve_block_fstype "$lv_path")
+    [[ -n "$fstype" ]] || fstype="-"
+    echo "  $lv_path [lvm $lv_size] fstype=$fstype vg=${lv_vg:-unknown}" >&2
+  done < <(list_lvm_candidates_for_nbd)
 }
 
 attach_vmdk() {
@@ -214,6 +262,7 @@ attach_vmdk() {
   sleep 1
   VG_NAME=""
   VG_NAMES=()
+  scan_lvm_devices_for_nbd
 
   while read -r vg_name; do
     [[ -n "$vg_name" ]] || continue
@@ -222,21 +271,7 @@ attach_vmdk() {
 
   if (( ${#VG_NAMES[@]} > 0 )); then
     VG_NAME="${VG_NAMES[0]}"
-    for vg_name in "${VG_NAMES[@]}"; do
-      sudo vgchange -an "$vg_name" >/dev/null 2>&1 || true
-    done
   fi
-
-  sudo vgscan --mknodes >/dev/null 2>&1 || true
-
-  if (( ${#VG_NAMES[@]} > 0 )); then
-    for vg_name in "${VG_NAMES[@]}"; do
-      sudo vgchange -ay "$vg_name" >/dev/null 2>&1 || true
-    done
-  else
-    sudo vgchange -ay >/dev/null 2>&1 || true
-  fi
-  sudo udevadm settle
 
   MOUNT_DIR=$(mktemp -d /tmp/shenji-vmdk.XXXXXX)
   while read -r candidate candidate_fstype candidate_size; do
