@@ -13,12 +13,13 @@ DEFAULT_ARTIFACTS_DIR="$REPO_ROOT/.artifacts"
 usage() {
   cat <<'EOF'
 用法:
-  update_from_vmdk.sh <VMDK文件或已挂载根目录> [VMDK SQL dump(.sql/.sql.gz)] [overlay目录] [输出目录]
+  update_from_vmdk.sh <VMDK文件或已挂载根目录> [已导出的VMDK SQL dump(.sql/.sql.gz)] [overlay目录] [输出目录]
 
 说明:
   1. 先同步神迹文件到 overlay 目录
   2. 再基于 VMDK dump 生成数据库 compare 报告和 rootfs overlay
   3. 最后打包 DNF / GM 两份镜像构建工件
+  4. 本脚本不会从 VMDK 自动导出 sql.gz；第二个参数必须是已存在的全库逻辑 dump
 
 示例:
   ./update_from_vmdk.sh /home/ubuntu/dnf/DNFServer.vmdk
@@ -35,6 +36,14 @@ main() {
   if [[ "${source_input:-}" == "-h" || "${source_input:-}" == "--help" || -z "${source_input:-}" ]]; then
     usage
     exit $([[ -n "${source_input:-}" ]] && echo 0 || echo 1)
+  fi
+
+  if [[ ! -f "$dump_path" ]]; then
+    echo "缺少 VMDK SQL dump: $dump_path" >&2
+    echo "update_from_vmdk.sh 不会从 VMDK 自动导出 sql.gz。" >&2
+    echo "第二个参数必须是已存在的全库逻辑 dump(.sql/.sql.gz)。" >&2
+    echo "如果你只想同步文件侧内容，请执行: $SCRIPT_DIR/sync_from_vmdk.sh $source_input $overlay_dir" >&2
+    exit 1
   fi
 
   "$SCRIPT_DIR/sync_from_vmdk.sh" "$source_input" "$overlay_dir"

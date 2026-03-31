@@ -74,6 +74,37 @@ cleanup() {
   fi
 }
 
+cleanup_stale_vmdk_state() {
+  local stale_mp vg_name sys dev
+
+  for stale_mp in /tmp/shenji-vmdk.*; do
+    [[ -e "$stale_mp" ]] || continue
+    if mountpoint -q "$stale_mp"; then
+      sudo umount "$stale_mp" >/dev/null 2>&1 || true
+    fi
+    rmdir "$stale_mp" >/dev/null 2>&1 || true
+  done
+
+  while read -r vg_name; do
+    [[ -n "$vg_name" ]] || continue
+    sudo vgchange -an "$vg_name" >/dev/null 2>&1 || true
+  done < <(
+    sudo pvs --noheadings -o vg_name,pv_name 2>/dev/null |
+      awk '$2 ~ "^/dev/nbd" && $1 != "" { print $1 }' |
+      awk '!seen[$0]++'
+  )
+
+  for sys in /sys/block/nbd*; do
+    [[ -e "$sys/size" ]] || continue
+    if [[ "$(cat "$sys/size")" != "0" ]]; then
+      dev="/dev/${sys##*/}"
+      sudo qemu-nbd --disconnect "$dev" >/dev/null 2>&1 || true
+    fi
+  done
+
+  sudo udevadm settle >/dev/null 2>&1 || true
+}
+
 find_free_nbd() {
   local sys dev
   for sys in /sys/block/nbd*; do
@@ -323,6 +354,7 @@ attach_vmdk() {
   ensure_vmdk_dependencies
 
   sudo modprobe nbd max_part=16
+  cleanup_stale_vmdk_state
   NBD_DEV=$(find_free_nbd) || {
     echo "没有找到空闲的 /dev/nbdX 设备" >&2
     exit 1
@@ -353,7 +385,7 @@ attach_vmdk() {
   MOUNT_DIR=$(mktemp -d /tmp/shenji-vmdk.XXXXXX)
   while read -r candidate candidate_fstype candidate_size; do
     [[ -n "$candidate" && -n "$candidate_fstype" ]] || continue
-    if ! mount_candidate_readonly "$candidate" "$candidate_fstype"; then
+    if ! mount_candidate_readonly "$candidate" "$candidate_fstype" >/dev/null 2>&1; then
       candidate_reports+=("$candidate [$candidate_fstype $candidate_size] mount_failed")
       continue
     fi
