@@ -95,7 +95,7 @@ RUN for bin in mysql mysqld_safe mysqladmin mysqldump my_print_defaults; do \
     && ldconfig \
     && mkdir -p /etc/init.d \
     # MySQL uses port 4000, configured in dnf_data/etc/my.cnf
-    && printf '#!/bin/bash\nexport PATH=/usr/local/mysql/bin:$PATH\ncase "$1" in\n  start)\n    shift\n    mkdir -p /var/run/mysqld /var/log/mysql\n    chown mysql:mysql /var/run/mysqld /var/log/mysql /var/lib/mysql\n    chmod 750 /var/run/mysqld\n    /usr/local/mysql/bin/mysqld_safe --defaults-file=/etc/my.cnf "$@" &\n    for i in $(seq 1 60); do\n      [ -S /var/lib/mysql/mysql.sock ] && echo "MySQL started" && break\n      sleep 1\n    done\n    ;;\n  stop)\n    /usr/local/mysql/bin/mysqladmin -u root shutdown 2>/dev/null || killall mysqld 2>/dev/null || true\n    sleep 2\n    ;;\n  restart)\n    $0 stop; $0 start "$@"\n    ;;\nesac\n' > /etc/init.d/mysql \
+    && printf '#!/bin/bash\nexport PATH=/usr/local/mysql/bin:$PATH\ncase "$1" in\n  start)\n    shift\n    mkdir -p /var/run/mysqld /var/log/mysql\n    chown mysql:mysql /var/run/mysqld /var/log/mysql /var/lib/mysql\n    chmod 750 /var/run/mysqld\n    /usr/local/mysql/bin/mysqld_safe --defaults-file=/etc/my.cnf "$@" &\n    bash /home/template/init/wait_for_mysql.sh\n    ;;\n  stop)\n    /usr/local/mysql/bin/mysqladmin -u root shutdown 2>/dev/null || killall mysqld 2>/dev/null || true\n    sleep 2\n    ;;\n  restart)\n    $0 stop; $0 start "$@"\n    ;;\nesac\n' > /etc/init.d/mysql \
     && chmod +x /etc/init.d/mysql \
     && printf '#!/bin/bash\nif [ "$1" = "mysql" ]; then shift; /etc/init.d/mysql "$@"; else echo "Unknown service: $1"; exit 1; fi\n' > /usr/sbin/service \
     && chmod +x /usr/sbin/service \
