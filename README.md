@@ -1,7 +1,7 @@
 # 地下城与勇士容器版本
 
 [![CI](https://github.com/llnut/dnf/actions/workflows/docker.yml/badge.svg)](https://github.com/llnut/dnf/actions/workflows/docker.yml)
-[![Docker Hub](https://img.shields.io/docker/pulls/llnut/dnf.svg?label=Docker%20Hub&maxAge=3600)](https://hub.docker.com/r/llnut/dnf/)
+[![Docker Hub](https://img.shields.io/badge/docker-available-blue)](https://hub.docker.com/r/llnut/dnf/)
 [![ghcr.io](https://img.shields.io/badge/ghcr.io-available-blue)](https://github.com/llnut/dnf/pkgs/container/dnf)
 [![quay.io](https://img.shields.io/badge/quay.io-available-blue)](https://quay.io/repository/llnut/dnf)
 [![ACR](https://img.shields.io/badge/ACR-available-blue)](https://crpi-0ghho6wxim378ik8.cn-hangzhou.personal.cr.aliyuncs.com/llnut/dnf)
