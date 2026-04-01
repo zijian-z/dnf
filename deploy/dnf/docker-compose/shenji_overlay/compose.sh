@@ -11,13 +11,13 @@ ARTIFACTS_DIR="$REPO_ROOT/.artifacts"
 
 if [[ ! -f "$ARTIFACTS_DIR/shenji-overlay-dnf.tar.gz" ]]; then
   echo "缺少 $ARTIFACTS_DIR/shenji-overlay-dnf.tar.gz" >&2
-  echo "请先执行 plugin/dp2/update_from_vmdk.sh 生成 overlay 打包产物" >&2
+  echo "请先执行 plugin/shenji_vmdk/update_from_vmdk.sh 生成 overlay 打包产物" >&2
   exit 1
 fi
 
 if [[ ! -f "$ARTIFACTS_DIR/shenji-overlay-gm.tar.gz" ]]; then
   echo "缺少 $ARTIFACTS_DIR/shenji-overlay-gm.tar.gz" >&2
-  echo "请先执行 plugin/dp2/update_from_vmdk.sh 生成 overlay 打包产物" >&2
+  echo "请先执行 plugin/shenji_vmdk/update_from_vmdk.sh 生成 overlay 打包产物" >&2
   exit 1
 fi
 

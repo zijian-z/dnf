@@ -28,15 +28,15 @@
 ### 一键更新
 
 ```bash
-plugin/dp2/update_from_vmdk.sh /path/to/DNFServer.vmdk
+plugin/shenji_vmdk/update_from_vmdk.sh /path/to/DNFServer.vmdk
 ```
 
 它会顺序执行:
 
-1. `plugin/dp2/sync_from_vmdk.sh`
-2. `plugin/dp2/export_vmdk_sql.sh`
-3. `plugin/dp2/build_db_overlay.sh`
-4. `plugin/dp2/package_shenji_overlay.sh`
+1. `plugin/shenji_vmdk/sync_from_vmdk.sh`
+2. `plugin/shenji_vmdk/export_vmdk_sql.sh`
+3. `plugin/shenji_vmdk/build_db_overlay.sh`
+4. `plugin/shenji_vmdk/package_shenji_overlay.sh`
 
 适合后续重复更新。
 
@@ -45,7 +45,7 @@ plugin/dp2/update_from_vmdk.sh /path/to/DNFServer.vmdk
 #### 1. 从 VMDK 同步文件
 
 ```bash
-plugin/dp2/sync_from_vmdk.sh /path/to/DNFServer.vmdk
+plugin/shenji_vmdk/sync_from_vmdk.sh /path/to/DNFServer.vmdk
 ```
 
 这一步会直接生成:
@@ -60,10 +60,36 @@ plugin/dp2/sync_from_vmdk.sh /path/to/DNFServer.vmdk
 - `rootfs/opt/shenji-overlay-meta/source_scripts/*`
 - `payload/gm_dist.tgz`
 
-#### 2. 基于 VMDK dump 生成数据库 overlay
+同时会把原始 `run` / `run_nopvp` / `stop` 快照写入:
+
+- `meta/source_scripts/*`
+
+#### 2. 从 VMDK 备份数据库
 
 ```bash
-plugin/dp2/build_db_overlay.sh /path/to/vmdk_latest_all.sql.gz
+plugin/shenji_vmdk/export_vmdk_sql.sh /path/to/DNFServer.vmdk /path/to/vmdk_latest_all.sql.gz
+```
+
+这一步会:
+
+- 自动挂载 VMDK，或直接使用你传入的已挂载根目录
+- 检查 `opt/lampp/bin/mysql`、`mysqldump`、`mysqld` 与 `opt/lampp/var/mysql`
+- 把 VMDK 里的 MySQL 数据目录复制到临时目录
+- 在临时 Docker 容器中用 VMDK 自带的 LAMPP MySQL 做逻辑导出
+- 自动尝试 `innodb_force_recovery=0..6`
+- 导出 `d_*`、`taiwan_*`、`tw`、`frida`
+- 生成 `.sql` 或 `.sql.gz` 文件
+
+如果不传第二个参数，默认输出到:
+
+```text
+tmp/db_dumps/vmdk_latest_all.sql.gz
+```
+
+#### 3. 基于 VMDK dump 生成数据库 overlay
+
+```bash
+plugin/shenji_vmdk/build_db_overlay.sh /path/to/vmdk_latest_all.sql.gz
 ```
 
 这一步会:
@@ -74,10 +100,10 @@ plugin/dp2/build_db_overlay.sh /path/to/vmdk_latest_all.sql.gz
 - 生成新的 `rootfs/home/template/init/init_sql.tgz`
 - 刷新 `rootfs/`
 
-#### 3. 打包构建工件
+#### 4. 打包构建工件
 
 ```bash
-plugin/dp2/package_shenji_overlay.sh
+plugin/shenji_vmdk/package_shenji_overlay.sh
 ```
 
 默认输出:
@@ -88,7 +114,7 @@ plugin/dp2/package_shenji_overlay.sh
 .artifacts/shenji-overlay-summary.txt
 ```
 
-#### 4. 本地 compose 启动
+#### 5. 本地 compose 启动
 
 ```bash
 cd deploy/dnf/docker-compose/shenji_overlay
@@ -129,10 +155,11 @@ deploy/dnf/docker-compose/shenji_overlay
 其中:
 
 - `rootfs/` 是 DNF 主镜像唯一发布输入
-- `rootfs/home/template/init/dp.tgz` 是收敛后的 DP 包
+- `rootfs/home/template/init/dp.tgz` 是由 VMDK 内完整 `dp2/` 目录重打包得到的 DP 包
 - `rootfs/opt/shenji-overlay-meta/source_scripts/` 只保留神迹原始 `run` / `run_nopvp` / `stop` 作为参考留档
 - `payload/gm_dist.tgz` 是 GodOfGM 打包输入
 - `meta/` 是仓库侧的分析与校验输出
+- `meta/source_scripts/` 是原始 `run` / `run_nopvp` / `stop` 的仓库侧快照来源；`update_from_vmdk.sh` 每次会先从 VMDK 刷新这里，再重建 `rootfs/`
 
 ## 固定约束
 
@@ -229,8 +256,8 @@ deploy/dnf/docker-compose/shenji_overlay/meta/db_compare/
 
 ```bash
 git pull
-plugin/dp2/build_db_overlay.sh /path/to/vmdk_latest_all.sql.gz
-plugin/dp2/package_shenji_overlay.sh
+plugin/shenji_vmdk/build_db_overlay.sh /path/to/vmdk_latest_all.sql.gz
+plugin/shenji_vmdk/package_shenji_overlay.sh
 cd deploy/dnf/docker-compose/shenji_overlay
 ./compose.sh up -d --build
 ```
@@ -238,7 +265,7 @@ cd deploy/dnf/docker-compose/shenji_overlay
 ### VMDK 更新后
 
 ```bash
-plugin/dp2/update_from_vmdk.sh /path/to/DNFServer.vmdk
+plugin/shenji_vmdk/update_from_vmdk.sh /path/to/DNFServer.vmdk
 cd deploy/dnf/docker-compose/shenji_overlay
 ./compose.sh up -d --build
 ```
@@ -321,7 +348,7 @@ docker compose logs -f godofgm
 
 ### 启动链总览
 
-当前神迹游戏进程的真实链路，不是“只挂一个 `frida.so`”这么简单，而是:
+当前 overlay 模板和清风镜像里的游戏进程启动链路，不是“只挂一个 `frida.so`”这么简单，而是:
 
 1. `LD_PRELOAD` 先挂 `/dp2/libhook.so`
 2. `libhook.so` 实际来自神迹 `libdp2pre.so`，负责把 `/dp2/libdp2.so` 拉起来
@@ -331,10 +358,12 @@ docker compose logs -f godofgm
 6. 只有 `libfd.so` 缺失时，启动脚本才回退到 `frida.so`
 
 这也是为什么当前 overlay 不只是保留一个 `frida.so`，而是保留整套 `dp.tgz + libfd.so + 启动脚本`。
+这里描述的是当前仓库内 overlay / 清风镜像的加载方式，不等同于“原始 VMDK 自带 run 脚本已经被完整验证”。
+当前仓库保留的神迹原始 `run` 快照里，游戏侧实际使用的是 `LD_PRELOAD="/dp2/libdp2pre.so:/home/neople/game/libfd.so"`。
 
 ### `libhook.so`
 
-- 实际来源是神迹 `libdp2pre.so`
+- 当前 overlay 中如果 VMDK 的 `dp2/` 只有 `libdp2pre.so`，会补出同内容的 `libhook.so` 文件名
 - 它是 DP2 的预加载引导器
 - 负责把 `/dp2/libdp2.so` 拉起来
 - 它不是主要玩法逻辑承载层

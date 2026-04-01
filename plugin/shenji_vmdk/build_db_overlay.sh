@@ -347,6 +347,13 @@ assemble_rootfs() {
   local generated_sql_tgz="$3"
   local rootfs_dir="$overlay_dir/rootfs"
 
+  if [[ ! -d "$overlay_dir/meta/source_scripts" ]] && [[ -d "$rootfs_dir/opt/shenji-overlay-meta/source_scripts" ]]; then
+    mkdir -p "$overlay_dir/meta"
+    cp -a \
+      "$rootfs_dir/opt/shenji-overlay-meta/source_scripts" \
+      "$overlay_dir/meta/source_scripts"
+  fi
+
   rm -rf "$rootfs_dir"
   mkdir -p "$rootfs_dir"
   cp -a "$ROOTFS_TEMPLATE_DIR"/. "$rootfs_dir"/

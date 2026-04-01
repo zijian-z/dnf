@@ -7,6 +7,5 @@ home/neople/game/channel_info/version|rootfs/home/template/neople/game/channel_i
 home/neople/channel/channel_amd64|rootfs/home/template/neople/channel/channel_amd64|0755|required|神迹 run 实际启动的频道进程
 home/neople/channel/channel_info/channel_info.etc|rootfs/home/template/neople/channel/channel_info/channel_info.etc|0644|required|神迹频道侧 channel_amd64 依赖的频道信息
 home/neople/channel/channel_info/version|rootfs/home/template/neople/channel/channel_info/version|0644|required|神迹频道侧频道信息版本号
-dp2/df_game_r.lua|rootfs/home/template/init/dp.tgz|0644|required|神迹 DP Lua 逻辑脚本，会与清风基底 dp2.tgz 合并后重新打包
-dp2/df_game_r.js|rootfs/home/template/init/dp.tgz|0644|required|神迹 DP JS 逻辑脚本，会与清风基底 dp2.tgz 合并后重新打包
-dp2/libdp2pre.so|rootfs/home/template/init/dp.tgz|0755|required|神迹预加载库，落到清风约定的 libhook.so 路径后再重新打包
+dp2/|rootfs/home/template/init/dp.tgz|0755|required|神迹 VMDK 内完整 dp2 目录会整体重打包为 dp.tgz
+dp2/libdp2pre.so|rootfs/home/template/init/dp.tgz|0755|required|若源目录缺少 libhook.so，则复制 libdp2pre.so 为 libhook.so 以兼容当前 Docker 启动链路

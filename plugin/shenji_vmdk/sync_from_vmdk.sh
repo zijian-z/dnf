@@ -5,7 +5,6 @@ set -euo pipefail
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd -- "$SCRIPT_DIR/../.." && pwd)
 MANIFEST_FILE="$SCRIPT_DIR/shenji_overlay.manifest"
-BASE_DP2_TGZ="$SCRIPT_DIR/dp2.tgz"
 ROOTFS_TEMPLATE_DIR="$SCRIPT_DIR/rootfs_template"
 DEFAULT_OUTPUT_DIR="$REPO_ROOT/deploy/dnf/docker-compose/shenji_overlay"
 COMPOSE_PROJECT_TEMPLATE="$REPO_ROOT/deploy/dnf/docker-compose/shenji_overlay/docker-compose.project.yaml"
@@ -27,7 +26,7 @@ usage() {
 说明:
   1. 输出目录默认是 deploy/dnf/docker-compose/shenji_overlay
   2. 脚本会直接生成 rootfs/，作为后续镜像打包的唯一 DNF 输入
-  3. dp 会以清风仓库自带 dp2.tgz 为基底，再覆盖神迹 VMDK 中确认必要的玩法文件
+  3. dp 会直接使用神迹 VMDK 中的完整 dp2 目录，并重打包为 dp.tgz
   4. df_game_r 现已作为默认覆盖文件同步到 rootfs 中
 
 示例:
@@ -79,13 +78,28 @@ build_dp_archive() {
   local out_dir="$2"
   local tmp_dir
 
+  if [[ ! -d "$source_root/dp2" ]]; then
+    echo "缺少 VMDK 中的 dp2 目录: $source_root/dp2" >&2
+    exit 1
+  fi
+
   tmp_dir=$(mktemp -d)
   mkdir -p "$tmp_dir/dp"
-  tar -xzf "$BASE_DP2_TGZ" -C "$tmp_dir/dp"
 
-  install -D -m 0644 "$source_root/dp2/df_game_r.lua" "$tmp_dir/dp/df_game_r.lua"
-  install -D -m 0644 "$source_root/dp2/df_game_r.js" "$tmp_dir/dp/df_game_r.js"
-  install -D -m 0755 "$source_root/dp2/libdp2pre.so" "$tmp_dir/dp/libhook.so"
+  (
+    cd "$source_root/dp2"
+    tar -cf - .
+  ) | (
+    cd "$tmp_dir/dp"
+    tar -xf -
+  )
+
+  # Qingfeng and the current overlay templates both expect /dp2/libhook.so.
+  # When the VMDK dp2 payload only ships libdp2pre.so, add the expected filename
+  # without changing the rest of the payload layout.
+  if [[ -f "$tmp_dir/dp/libdp2pre.so" && ! -f "$tmp_dir/dp/libhook.so" ]]; then
+    install -m 0755 "$tmp_dir/dp/libdp2pre.so" "$tmp_dir/dp/libhook.so"
+  fi
 
   (
     cd "$tmp_dir"
@@ -98,7 +112,7 @@ build_dp_archive() {
 copy_sidecar_files() {
   local source_root="$1"
   local out_dir="$2"
-  local source_scripts_dir="$out_dir/rootfs/opt/shenji-overlay-meta/source_scripts"
+  local source_scripts_dir="$out_dir/meta/source_scripts"
 
   rm -rf "$out_dir/gm" "$source_scripts_dir"
   mkdir -p "$out_dir/gm" "$source_scripts_dir"
@@ -209,23 +223,12 @@ EOF
 refresh_rootfs_meta() {
   local out_dir="$1"
   local meta_root="$out_dir/rootfs/opt/shenji-overlay-meta"
-  local source_scripts_tmp=""
-
-  if [[ -d "$meta_root/source_scripts" ]]; then
-    source_scripts_tmp=$(mktemp -d)
-    cp -a "$meta_root/source_scripts" "$source_scripts_tmp/source_scripts"
-  fi
 
   rm -rf "$meta_root"
   mkdir -p "$meta_root"
 
   if [[ -d "$out_dir/meta" ]]; then
     cp -a "$out_dir/meta"/. "$meta_root"/
-  fi
-
-  if [[ -n "$source_scripts_tmp" ]] && [[ -d "$source_scripts_tmp/source_scripts" ]]; then
-    cp -a "$source_scripts_tmp/source_scripts" "$meta_root/source_scripts"
-    rm -rf "$source_scripts_tmp"
   fi
 }
 
@@ -246,7 +249,7 @@ main() {
 
   if [[ "$out_dir" =~ \.sql(\.gz)?$ ]]; then
     echo "警告: sync_from_vmdk.sh 的第二个参数是输出目录，不是 SQL dump 路径" >&2
-    echo "如果要一键处理 VMDK、SQL 导出和数据库 overlay，请执行: plugin/dp2/update_from_vmdk.sh <VMDK文件>" >&2
+    echo "如果要一键处理 VMDK、SQL 导出和数据库 overlay，请执行: plugin/shenji_vmdk/update_from_vmdk.sh <VMDK文件>" >&2
   fi
 
   trap cleanup EXIT
@@ -287,8 +290,8 @@ EOF
     cat <<EOF
 
 建议下一步:
-  1. 执行 plugin/dp2/build_db_overlay.sh <VMDK导出的全库SQL> $out_dir
-  2. 执行 plugin/dp2/package_shenji_overlay.sh $out_dir
+  1. 执行 plugin/shenji_vmdk/build_db_overlay.sh <VMDK导出的全库SQL> $out_dir
+  2. 执行 plugin/shenji_vmdk/package_shenji_overlay.sh $out_dir
   3. 进入 $out_dir 执行 ./compose.sh up -d --build
 EOF
   fi

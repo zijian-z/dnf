@@ -94,8 +94,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          chmod +x plugin/dp2/package_shenji_overlay.sh
-          plugin/dp2/package_shenji_overlay.sh
+          chmod +x plugin/shenji_vmdk/package_shenji_overlay.sh
+          plugin/shenji_vmdk/package_shenji_overlay.sh
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
