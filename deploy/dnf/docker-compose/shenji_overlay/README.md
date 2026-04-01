@@ -296,10 +296,9 @@ mkdir -p data data/godofgm mysql log log/godofgm
 - [`deploy/dnf/docker-compose/shenji_overlay/docker-compose.release.yaml`](./docker-compose.release.yaml)
 - [`deploy/dnf/docker-compose/shenji_overlay/.env.example`](./.env.example)
 
-改名:
+准备环境文件:
 
 ```bash
-cp docker-compose.release.yaml docker-compose.yaml
 cp .env.example .env
 ```
 
@@ -324,15 +323,15 @@ echo '<ghcr_token>' | docker login ghcr.io -u <github_user> --password-stdin
 启动:
 
 ```bash
-docker compose up -d
+docker compose --env-file .env -f docker-compose.release.yaml up -d
 ```
 
 查看状态:
 
 ```bash
-docker compose ps
-docker compose logs -f dnf-1
-docker compose logs -f godofgm
+docker compose --env-file .env -f docker-compose.release.yaml ps
+docker compose --env-file .env -f docker-compose.release.yaml logs -f dnf-1
+docker compose --env-file .env -f docker-compose.release.yaml logs -f godofgm
 ```
 
 ## 关键模块说明
