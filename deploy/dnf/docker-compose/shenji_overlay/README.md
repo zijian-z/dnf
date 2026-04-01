@@ -57,7 +57,6 @@ plugin/shenji_vmdk/sync_from_vmdk.sh /path/to/DNFServer.vmdk
 - `rootfs/home/template/init/run/start_channel.sh`
 - `rootfs/home/template/neople/game/*`
 - `rootfs/home/template/neople/channel/*`
-- `rootfs/opt/shenji-overlay-meta/source_scripts/*`
 - `payload/gm_dist.tgz`
 
 同时会把原始 `run` / `run_nopvp` / `stop` 快照写入:
@@ -156,7 +155,7 @@ deploy/dnf/docker-compose/shenji_overlay
 
 - `rootfs/` 是 DNF 主镜像唯一发布输入
 - `rootfs/home/template/init/dp.tgz` 是由 VMDK 内完整 `dp2/` 目录重打包得到的 DP 包
-- `rootfs/opt/shenji-overlay-meta/source_scripts/` 只保留神迹原始 `run` / `run_nopvp` / `stop` 作为参考留档
+- `rootfs/opt/shenji-overlay-meta/source_scripts/` 不再作为仓库常驻文件；只有打包 DNF 工件时，才会由 `meta/source_scripts/` 注入进去
 - `payload/gm_dist.tgz` 是 GodOfGM 打包输入
 - `meta/` 是仓库侧的分析与校验输出
 - `meta/source_scripts/` 是原始 `run` / `run_nopvp` / `stop` 的仓库侧快照来源；`update_from_vmdk.sh` 每次会先从 VMDK 刷新这里，再重建 `rootfs/`
@@ -488,10 +487,10 @@ README 前面的运行日志和当前 `start_game.sh` 也对应这条逻辑。
 - `deploy/dnf/docker-compose/shenji_overlay/meta/db_overlay_summary.txt`
 - `deploy/dnf/docker-compose/shenji_overlay/meta/checksums.txt`
 - `.artifacts/shenji-overlay-summary.txt`
-- `deploy/dnf/docker-compose/shenji_overlay/rootfs/opt/shenji-overlay-meta/source_scripts/run`
-- `deploy/dnf/docker-compose/shenji_overlay/rootfs/opt/shenji-overlay-meta/source_scripts/stop`
+- `deploy/dnf/docker-compose/shenji_overlay/meta/source_scripts/run`
+- `deploy/dnf/docker-compose/shenji_overlay/meta/source_scripts/stop`
 
 其中:
 
 - `meta/db_compare/*`、`meta/db_overlay_summary.txt` 属于本地产物，默认不会提交到 GitHub
-- `rootfs/opt/shenji-overlay-meta/source_scripts/*` 只是神迹原始脚本留档，不参与当前运行链路
+- `meta/source_scripts/*` 只是神迹原始脚本留档，不参与当前运行链路；打包时才会被拷入最终 rootfs

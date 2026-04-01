@@ -149,8 +149,8 @@ plugin/shenji_vmdk/build_db_overlay.sh /path/to/vmdk_latest_all.sql.gz
 
 - `sync_from_vmdk.sh` 每次都会直接从 VMDK 的 `root/` 目录重新复制这三份脚本
 - 快照先写到 `overlay_dir/meta/source_scripts/`
-- 再同步到 `rootfs/opt/shenji-overlay-meta/source_scripts/`
-- `build_db_overlay.sh` 重建 `rootfs/` 时只会回灌 `meta/` 里的快照，不会再把它们删掉
+- 仓库里长期保留的只有这份 `meta/source_scripts/` 快照
+- `package_shenji_overlay.sh` 打包 DNF 工件时，才会把它们放进最终 rootfs 的 `opt/shenji-overlay-meta/source_scripts/`
 - 所以一键执行 `update_from_vmdk.sh` 时，如果 VMDK 更新了，这三份脚本也会跟着刷新
 
 ## 关于数据库对比

@@ -11,4 +11,5 @@ deploy/dnf/docker-compose/shenji_overlay/rootfs/opt/shenji-overlay-meta/db_compa
 deploy/dnf/docker-compose/shenji_overlay/rootfs/opt/shenji-overlay-meta/db_overlay_summary.txt
 deploy/dnf/docker-compose/shenji_overlay/rootfs/opt/shenji-overlay-meta/recommended-env.txt
 deploy/dnf/docker-compose/shenji_overlay/rootfs/opt/shenji-overlay-meta/source.txt
+deploy/dnf/docker-compose/shenji_overlay/rootfs/opt/shenji-overlay-meta/source_scripts/
 .artifacts/

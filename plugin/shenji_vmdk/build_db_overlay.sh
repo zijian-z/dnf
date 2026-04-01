@@ -382,6 +382,7 @@ assemble_rootfs() {
 
   if [[ -d "$overlay_dir/meta" ]]; then
     cp -a "$overlay_dir/meta"/. "$rootfs_dir/opt/shenji-overlay-meta"/
+    rm -rf "$rootfs_dir/opt/shenji-overlay-meta/source_scripts"
   fi
 
   chmod +x \

@@ -229,6 +229,7 @@ refresh_rootfs_meta() {
 
   if [[ -d "$out_dir/meta" ]]; then
     cp -a "$out_dir/meta"/. "$meta_root"/
+    rm -rf "$meta_root/source_scripts"
   fi
 }
 
