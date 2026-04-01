@@ -79,21 +79,23 @@
 一键执行完整流程:
 
 1. 同步 VMDK 文件
-2. 生成数据库 overlay
-3. 打包构建工件
+2. 用 Docker 导出 VMDK 内 MySQL SQL
+3. 生成数据库 overlay 和结构对比报告
+4. 打包构建工件
 
 ## 推荐流程
 
 ### 一键执行
 
 ```bash
-plugin/dp2/update_from_vmdk.sh /path/to/DNFServer.vmdk /path/to/vmdk_latest_all.sql.gz
+plugin/dp2/update_from_vmdk.sh /path/to/DNFServer.vmdk
 ```
 
 ### 分步执行
 
 ```bash
 plugin/dp2/sync_from_vmdk.sh /path/to/DNFServer.vmdk
+plugin/dp2/export_vmdk_sql.sh /path/to/DNFServer.vmdk /path/to/vmdk_latest_all.sql.gz
 plugin/dp2/build_db_overlay.sh /path/to/vmdk_latest_all.sql.gz
 plugin/dp2/package_shenji_overlay.sh
 ```

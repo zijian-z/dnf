@@ -28,14 +28,15 @@
 ### 一键更新
 
 ```bash
-plugin/dp2/update_from_vmdk.sh /path/to/DNFServer.vmdk /path/to/vmdk_latest_all.sql.gz
+plugin/dp2/update_from_vmdk.sh /path/to/DNFServer.vmdk
 ```
 
 它会顺序执行:
 
 1. `plugin/dp2/sync_from_vmdk.sh`
-2. `plugin/dp2/build_db_overlay.sh`
-3. `plugin/dp2/package_shenji_overlay.sh`
+2. `plugin/dp2/export_vmdk_sql.sh`
+3. `plugin/dp2/build_db_overlay.sh`
+4. `plugin/dp2/package_shenji_overlay.sh`
 
 适合后续重复更新。
 
@@ -237,7 +238,7 @@ cd deploy/dnf/docker-compose/shenji_overlay
 ### VMDK 更新后
 
 ```bash
-plugin/dp2/update_from_vmdk.sh /path/to/DNFServer.vmdk /path/to/vmdk_latest_all.sql.gz
+plugin/dp2/update_from_vmdk.sh /path/to/DNFServer.vmdk
 cd deploy/dnf/docker-compose/shenji_overlay
 ./compose.sh up -d --build
 ```
