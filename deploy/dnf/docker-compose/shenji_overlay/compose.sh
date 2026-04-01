@@ -22,6 +22,7 @@ if [[ ! -f "$ARTIFACTS_DIR/shenji-overlay-gm.tar.gz" ]]; then
 fi
 
 exec docker compose \
+  --project-directory "$SCRIPT_DIR" \
   -f "$PROJECT_FILE" \
   -f "$BASE_FILE" \
   -f "$OVERRIDE_FILE" \
