@@ -280,8 +280,8 @@ cd deploy/dnf/docker-compose/shenji_overlay
 
 部署时最常用的文件是:
 
-- `docker-compose.release.yaml`
-- `.env.example`
+- [`docker-compose.release.yaml`](./docker-compose.release.yaml)
+- [`.env.example`](./.env.example)
 
 典型部署目录:
 
@@ -293,8 +293,8 @@ mkdir -p data data/godofgm mysql log log/godofgm
 
 然后复制:
 
-- `deploy/dnf/docker-compose/shenji_overlay/docker-compose.release.yaml`
-- `deploy/dnf/docker-compose/shenji_overlay/.env.example`
+- [`deploy/dnf/docker-compose/shenji_overlay/docker-compose.release.yaml`](./docker-compose.release.yaml)
+- [`deploy/dnf/docker-compose/shenji_overlay/.env.example`](./.env.example)
 
 改名:
 
