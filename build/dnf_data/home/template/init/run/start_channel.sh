@@ -5,7 +5,7 @@ rm -rf pid/*.pid
 counter=0
 while [ $counter -lt 20 ]
 do
-  if nc -zv $MAIN_BRIDGE_IP 7000 2>&1 | grep succeeded >/dev/null ; then
+  if socat -T2 /dev/null "TCP:${MAIN_BRIDGE_IP}:7000" 2>/dev/null ; then
     echo "bridge 7000 port ready"
     break
   fi

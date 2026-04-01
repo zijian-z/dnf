@@ -57,7 +57,7 @@ ENV TZ=Asia/Shanghai \
 # Install runtime dependencies
 RUN microdnf install -y dnf && \
     dnf install -y --allowerasing --setopt=install_weak_deps=False \
-    procps-ng psmisc net-tools nmap-ncat \
+    procps-ng psmisc net-tools \
     # i686 runtime
     glibc.i686 libstdc++.i686 zlib.i686 libgcc.i686 nss-softokn-freebl.i686 \
     # i686 font rendering for captcha generation

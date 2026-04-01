@@ -60,7 +60,7 @@ ENV TZ=Asia/Shanghai \
 # Install runtime dependencies
 RUN dpkg --add-architecture i386 && \
     apt-get update && apt-get install -y --no-install-recommends \
-    procps psmisc net-tools netcat-openbsd \
+    procps psmisc net-tools \
     # i386 runtime
     libc6:i386 libstdc++6:i386 zlib1g:i386 \
     # i386 font rendering for captcha generation

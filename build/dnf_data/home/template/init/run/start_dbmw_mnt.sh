@@ -1,4 +1,4 @@
-# /bin/bash
+#!/bin/bash
 
 old_pid=$(pgrep -f "df_dbmw_r server_01 start")
 if [ -n "$old_pid" ]; then

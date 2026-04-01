@@ -1,4 +1,4 @@
-# /bin/bash
+#!/bin/bash
 
 killall -9 zergsvr
 rm -rf zergsvr.pid

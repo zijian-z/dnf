@@ -1,4 +1,4 @@
-# /bin/bash
+#!/bin/bash
 
 # 获得频道传入参数
 channel_no=$1
@@ -11,7 +11,7 @@ echo "prepare to start ch.$channel_no, process_sequence is $process_sequence"
 counter=0
 while [ $counter -lt 30 ]
 do
-  if nc -zv $MAIN_BRIDGE_IP 7000 2>&1 | grep succeeded >/dev/null ; then
+  if socat -T2 /dev/null "TCP:${MAIN_BRIDGE_IP}:7000" 2>/dev/null ; then
     echo "bridge 7000 port ready"
     break
   fi
