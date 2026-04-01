@@ -1,4 +1,4 @@
-# /bin/bash
+#!/bin/bash
 
 killall -9 df_coserver_r
 rm -rf pid/*.pid

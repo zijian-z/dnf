@@ -11,7 +11,7 @@ RUN cd /etc/yum.repos.d/ && rm -rf * && sed -i "s|enabled=1|enabled=0|g" /etc/yu
     curl -o CentOS-Base.repo https://raw.githubusercontent.com/llnut/dnf_util/refs/heads/main/Centos7/CentOS-Base.repo && \
     # 更新软件
     yum clean all && yum update -y && yum install -y psmisc openssl openssl-devel curl wget perl vim iptables \
-    gcc gcc-c++ make zlib-devel libc.so.6 libstdc++ libstdc++.so.6 glibc.i686 libssl.so.6 xulrunner.x86_64 libXtst.x86_64 initscripts bind-utils nc && \
+    gcc gcc-c++ make zlib-devel libc.so.6 libstdc++ libstdc++.so.6 glibc.i686 libssl.so.6 xulrunner.x86_64 libXtst.x86_64 initscripts bind-utils && \
     ln -sf /usr/lib64/libssl.so.10 /usr/lib64/libssl.so.6 && ln -sf /usr/lib64/libcrypto.so.10 /usr/lib64/libcrypto.so.6 && \
     # 下载软件
     cd /tmp && \
@@ -35,7 +35,7 @@ RUN cd /etc/yum.repos.d/ && rm -rf * && sed -i "s|enabled=1|enabled=0|g" /etc/yu
     # 移动so文件
     mv /tmp/*.so /lib/ &&  mv /tmp/*.so.1 /lib/ && \
     # 安装socat
-    cd /tmp/socat-1.7.4.3 && ./configure --disable-fips make && make install && \
+    cd /tmp/socat-1.7.4.3 && ./configure --disable-fips && make && make install && \
     # 编译python2.7 supervisor
     cd /tmp/Python-2.7.13 && ./configure && make install && \
     cd /tmp/setuptools-18.0.1 && python2.7 setup.py install && \

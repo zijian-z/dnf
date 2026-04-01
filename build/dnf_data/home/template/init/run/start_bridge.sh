@@ -1,4 +1,4 @@
-# /bin/bash
+#!/bin/bash
 
 # 启动bridge服务
 killall -9 df_bridge_r
