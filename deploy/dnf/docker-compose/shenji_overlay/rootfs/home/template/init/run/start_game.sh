@@ -54,7 +54,16 @@ fi
 rm -rf "pid/${channel_name}.pid"
 
 # frida.so 仍会在进程内被 dp2 额外 dlopen，一些神迹库还依赖旧 glibc 的私有入口。
-preload_chain="/usr/lib/libdlopen_compat.so:/usr/lib/libglibc_compat.so:/dp2/libhook.so"
+preload_chain="/usr/lib/libdlopen_compat.so:/usr/lib/libglibc_compat.so"
+if [ -f /dp2/libdp2pre.so ]; then
+  preload_chain="${preload_chain}:/dp2/libdp2pre.so"
+  echo "using original Shenji /dp2/libdp2pre.so"
+elif [ -f /dp2/libhook.so ]; then
+  preload_chain="${preload_chain}:/dp2/libhook.so"
+  echo "fallback to /dp2/libhook.so"
+else
+  echo "warning: no /dp2/libdp2pre.so or /dp2/libhook.so found"
+fi
 
 # 神迹原始 run 语义: 游戏进程并不是挂 frida.so，而是挂 libfd.so。
 if [ -f /data/libfd.so ]; then
@@ -69,7 +78,7 @@ elif [ -f /home/neople/game/frida.so ]; then
   preload_chain="${preload_chain}:/home/neople/game/frida.so"
   echo "libfd.so missing, fallback to frida.so"
 else
-  echo "warning: no libfd.so/frida.so found, preload only /dp2/libhook.so"
+  echo "warning: no libfd.so/frida.so found, preload only dp2 preloader"
 fi
 
 echo "LD_PRELOAD=${preload_chain}"
