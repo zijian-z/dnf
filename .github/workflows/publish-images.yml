@@ -180,14 +180,16 @@ jobs:
         run: |
           set -euo pipefail
 
-          aliyun_repo="${ALIYUN_REGISTRY}/${ALIYUN_NAMESPACE}/dof"
+          aliyun_base_repo="${ALIYUN_REGISTRY}/${ALIYUN_NAMESPACE}/dnf"
+          aliyun_overlay_repo="${ALIYUN_REGISTRY}/${ALIYUN_NAMESPACE}/dnf-shenji-overlay"
+          aliyun_gm_repo="${ALIYUN_REGISTRY}/${ALIYUN_NAMESPACE}/dnf-shenji-godofgm"
 
-          aliyun_base_version_tag="${aliyun_repo}:centos7-qf1031-${{ steps.meta.outputs.version }}"
-          aliyun_base_latest_tag="${aliyun_repo}:centos7-qf1031-latest"
-          aliyun_overlay_version_tag="${aliyun_repo}:shenji-overlay-${{ steps.meta.outputs.version }}"
-          aliyun_overlay_latest_tag="${aliyun_repo}:shenji-overlay-latest"
-          aliyun_gm_version_tag="${aliyun_repo}:shenji-godofgm-${{ steps.meta.outputs.version }}"
-          aliyun_gm_latest_tag="${aliyun_repo}:shenji-godofgm-latest"
+          aliyun_base_version_tag="${aliyun_base_repo}:centos7-qf1031-${{ steps.meta.outputs.version }}"
+          aliyun_base_latest_tag="${aliyun_base_repo}:centos7-qf1031-latest"
+          aliyun_overlay_version_tag="${aliyun_overlay_repo}:${{ steps.meta.outputs.version }}"
+          aliyun_overlay_latest_tag="${aliyun_overlay_repo}:latest"
+          aliyun_gm_version_tag="${aliyun_gm_repo}:${{ steps.meta.outputs.version }}"
+          aliyun_gm_latest_tag="${aliyun_gm_repo}:latest"
 
           docker tag "${{ steps.meta.outputs.base_version_tag }}" "${aliyun_base_version_tag}"
           docker tag "${{ steps.meta.outputs.overlay_version_tag }}" "${aliyun_overlay_version_tag}"
