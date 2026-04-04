@@ -347,13 +347,6 @@ assemble_rootfs() {
   local generated_sql_tgz="$3"
   local rootfs_dir="$overlay_dir/rootfs"
 
-  if [[ ! -d "$overlay_dir/meta/source_scripts" ]] && [[ -d "$rootfs_dir/opt/shenji-overlay-meta/source_scripts" ]]; then
-    mkdir -p "$overlay_dir/meta"
-    cp -a \
-      "$rootfs_dir/opt/shenji-overlay-meta/source_scripts" \
-      "$overlay_dir/meta/source_scripts"
-  fi
-
   rm -rf "$rootfs_dir"
   mkdir -p "$rootfs_dir"
   cp -a "$ROOTFS_TEMPLATE_DIR"/. "$rootfs_dir"/
@@ -362,8 +355,7 @@ assemble_rootfs() {
     "$rootfs_dir/home/template/init" \
     "$rootfs_dir/home/template/init/run" \
     "$rootfs_dir/home/template/neople/game" \
-    "$rootfs_dir/home/template/neople/channel" \
-    "$rootfs_dir/opt/shenji-overlay-meta"
+    "$rootfs_dir/home/template/neople/channel"
 
   cp "$source_overlay_dir/data/df_game_r" "$rootfs_dir/home/template/init/df_game_r"
   cp "$source_overlay_dir/data/libfd.so" "$rootfs_dir/home/template/neople/game/libfd.so"
@@ -378,11 +370,6 @@ assemble_rootfs() {
 
   if [[ -f "$source_overlay_dir/data/Script.pvf" ]]; then
     cp "$source_overlay_dir/data/Script.pvf" "$rootfs_dir/home/template/init/Script.pvf"
-  fi
-
-  if [[ -d "$overlay_dir/meta" ]]; then
-    cp -a "$overlay_dir/meta"/. "$rootfs_dir/opt/shenji-overlay-meta"/
-    rm -rf "$rootfs_dir/opt/shenji-overlay-meta/source_scripts"
   fi
 
   chmod +x \
@@ -436,17 +423,6 @@ main() {
 
   tar -czf "$generated_sql_tgz" -C "$generated_sql_dir" .
   assemble_rootfs "$source_overlay_dir" "$overlay_dir" "$generated_sql_tgz"
-
-  cat >"$overlay_dir/meta/db_overlay_summary.txt" <<EOF
-generated_at=$(date '+%Y-%m-%d %H:%M:%S %z')
-dump_path=$dump_path
-schema_compare=$compare_dir/schema_summary.txt
-qf_only_tables=$compare_dir/qf_only_tables.txt
-vmdk_only_tables=$compare_dir/vmdk_only_tables.txt
-table_structure_diff=$compare_dir/table_structure_diff.txt
-rootfs_dir=$overlay_dir/rootfs
-init_sql_tgz=$overlay_dir/rootfs/home/template/init/init_sql.tgz
-EOF
 
   cat <<EOF
 数据库 overlay 生成完成:

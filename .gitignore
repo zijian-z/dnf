@@ -4,12 +4,4 @@ deploy/dnf/docker-compose/shenji_overlay/log/
 deploy/dnf/docker-compose/shenji_overlay/rootfs/home/template/init/Script.pvf
 deploy/dnf/docker-compose/shenji_overlay/optional/libfd_source/
 deploy/dnf/docker-compose/shenji_overlay/meta/db_compare/
-deploy/dnf/docker-compose/shenji_overlay/meta/db_overlay_summary.txt
-deploy/dnf/docker-compose/shenji_overlay/meta/recommended-env.txt
-deploy/dnf/docker-compose/shenji_overlay/meta/source.txt
-deploy/dnf/docker-compose/shenji_overlay/rootfs/opt/shenji-overlay-meta/db_compare/
-deploy/dnf/docker-compose/shenji_overlay/rootfs/opt/shenji-overlay-meta/db_overlay_summary.txt
-deploy/dnf/docker-compose/shenji_overlay/rootfs/opt/shenji-overlay-meta/recommended-env.txt
-deploy/dnf/docker-compose/shenji_overlay/rootfs/opt/shenji-overlay-meta/source.txt
-deploy/dnf/docker-compose/shenji_overlay/rootfs/opt/shenji-overlay-meta/source_scripts/
 .artifacts/

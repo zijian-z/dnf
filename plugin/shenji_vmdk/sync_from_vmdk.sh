@@ -4,7 +4,6 @@ set -euo pipefail
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd -- "$SCRIPT_DIR/../.." && pwd)
-MANIFEST_FILE="$SCRIPT_DIR/shenji_overlay.manifest"
 ROOTFS_TEMPLATE_DIR="$SCRIPT_DIR/rootfs_template"
 DEFAULT_OUTPUT_DIR="$REPO_ROOT/deploy/dnf/docker-compose/shenji_overlay"
 COMPOSE_PROJECT_TEMPLATE="$REPO_ROOT/deploy/dnf/docker-compose/shenji_overlay/docker-compose.project.yaml"
@@ -12,8 +11,6 @@ COMPOSE_OVERRIDE_TEMPLATE="$REPO_ROOT/deploy/dnf/docker-compose/shenji_overlay/d
 COMPOSE_WRAPPER_TEMPLATE="$REPO_ROOT/deploy/dnf/docker-compose/shenji_overlay/compose.sh"
 GODOFGM_START_TEMPLATE="$REPO_ROOT/deploy/dnf/docker-compose/shenji_overlay/gm-start.sh"
 GODOFGM_DOCKERFILE_TEMPLATE="$REPO_ROOT/deploy/dnf/docker-compose/shenji_overlay/Dockerfile.godofgm"
-GAME_START_TEMPLATE="$REPO_ROOT/deploy/dnf/docker-compose/shenji_overlay/game-start.sh.template"
-CHANNEL_START_TEMPLATE="$REPO_ROOT/deploy/dnf/docker-compose/shenji_overlay/channel-start.sh.template"
 GM_DIST_PAYLOAD_REL="payload/gm_dist.tgz"
 
 source "$SCRIPT_DIR/vmdk_mount_lib.sh"
@@ -38,6 +35,16 @@ EOF
 prepare_rootfs_layout() {
   local out_dir="$1"
   local rootfs_dir="$out_dir/rootfs"
+  local current_run_dir="$rootfs_dir/home/template/init/run"
+  local tmp_run_dir
+
+  tmp_run_dir=$(mktemp -d)
+  if [[ -f "$current_run_dir/start_game.sh" ]]; then
+    cp "$current_run_dir/start_game.sh" "$tmp_run_dir/start_game.sh"
+  fi
+  if [[ -f "$current_run_dir/start_channel.sh" ]]; then
+    cp "$current_run_dir/start_channel.sh" "$tmp_run_dir/start_channel.sh"
+  fi
 
   rm -rf "$rootfs_dir"
   mkdir -p "$rootfs_dir"
@@ -46,8 +53,16 @@ prepare_rootfs_layout() {
   mkdir -p \
     "$rootfs_dir/home/template/init/run" \
     "$rootfs_dir/home/template/neople/game/channel_info" \
-    "$rootfs_dir/home/template/neople/channel/channel_info" \
-    "$rootfs_dir/opt/shenji-overlay-meta"
+    "$rootfs_dir/home/template/neople/channel/channel_info"
+
+  if [[ -f "$tmp_run_dir/start_game.sh" ]]; then
+    install -D -m 0755 "$tmp_run_dir/start_game.sh" "$rootfs_dir/home/template/init/run/start_game.sh"
+  fi
+  if [[ -f "$tmp_run_dir/start_channel.sh" ]]; then
+    install -D -m 0755 "$tmp_run_dir/start_channel.sh" "$rootfs_dir/home/template/init/run/start_channel.sh"
+  fi
+
+  rm -rf "$tmp_run_dir"
 }
 
 copy_vmdk_files_to_rootfs() {
@@ -112,17 +127,12 @@ build_dp_archive() {
 copy_sidecar_files() {
   local source_root="$1"
   local out_dir="$2"
-  local source_scripts_dir="$out_dir/meta/source_scripts"
 
-  rm -rf "$out_dir/gm" "$source_scripts_dir"
-  mkdir -p "$out_dir/gm" "$source_scripts_dir"
+  rm -rf "$out_dir/gm"
+  mkdir -p "$out_dir/gm"
 
   sudo cp -a "$source_root/root/dist" "$out_dir/gm/dist"
-  sudo cp -a "$source_root/root/run" "$source_scripts_dir/run"
-  sudo cp -a "$source_root/root/run_nopvp" "$source_scripts_dir/run_nopvp"
-  sudo cp -a "$source_root/root/stop" "$source_scripts_dir/stop"
   sudo chown -R "$(id -u):$(id -g)" "$out_dir/gm"
-  sudo chown -R "$(id -u):$(id -g)" "$source_scripts_dir"
 }
 
 copy_support_files() {
@@ -150,10 +160,17 @@ copy_support_files() {
     cp "$GODOFGM_DOCKERFILE_TEMPLATE" "$out_dir/Dockerfile.godofgm"
   fi
 
-  mkdir -p "$out_dir/rootfs/home/template/init/run"
-  cp "$GAME_START_TEMPLATE" "$out_dir/rootfs/home/template/init/run/start_game.sh"
+  if [[ ! -f "$out_dir/rootfs/home/template/init/run/start_game.sh" ]]; then
+    echo "缺少 rootfs/home/template/init/run/start_game.sh，请先在 overlay rootfs 中维护该脚本" >&2
+    exit 1
+  fi
+
+  if [[ ! -f "$out_dir/rootfs/home/template/init/run/start_channel.sh" ]]; then
+    echo "缺少 rootfs/home/template/init/run/start_channel.sh，请先在 overlay rootfs 中维护该脚本" >&2
+    exit 1
+  fi
+
   chmod +x "$out_dir/rootfs/home/template/init/run/start_game.sh"
-  cp "$CHANNEL_START_TEMPLATE" "$out_dir/rootfs/home/template/init/run/start_channel.sh"
   chmod +x "$out_dir/rootfs/home/template/init/run/start_channel.sh"
 }
 
@@ -168,68 +185,6 @@ pack_payloads() {
       tar -czf "$GM_DIST_PAYLOAD_REL" gm/dist
     )
     rm -rf "$out_dir/gm/dist"
-  fi
-}
-
-write_metadata() {
-  local source_input="$1"
-  local source_root="$2"
-  local out_dir="$3"
-
-  cat >"$out_dir/meta/source.txt" <<EOF
-source_input=$source_input
-source_root=$source_root
-generated_at=$(date '+%Y-%m-%d %H:%M:%S %z')
-EOF
-
-  cp "$MANIFEST_FILE" "$out_dir/meta/shenji_overlay.manifest"
-
-  {
-    echo "# 必须保留的环境变量"
-    echo "SERVER_GROUP=3"
-    echo "SERVER_GROUP_DB=cain"
-    echo "DNF_DB_GAME_PASSWORD=uu5!^%jg"
-    echo "OPEN_CHANNEL=11"
-    echo
-    echo "# 默认策略"
-    echo "1. 已启用神迹 Script.pvf 覆盖"
-    echo "2. 已启用神迹 df_game_r 覆盖"
-    echo "3. 已启用神迹 dp2 脚本覆盖"
-    echo "4. 已启用神迹 run 语义提取版 start_game.sh 与 start_channel.sh"
-    echo "5. 已同步神迹 channel_amd64 与双份 channel_info"
-    echo "6. 已同步网页 GM，并压缩为 payload/gm_dist.tgz"
-    echo "7. 已保留运行所需的 libfd.so，并保存原始 run 脚本以便后续比对更新"
-  } >"$out_dir/meta/recommended-env.txt"
-
-  (
-    cd "$out_dir"
-    sha256sum \
-      rootfs/home/template/init/Script.pvf \
-      rootfs/home/template/init/df_game_r \
-      rootfs/home/template/init/dp.tgz \
-      rootfs/home/template/neople/game/libfd.so \
-      rootfs/home/template/neople/game/channel_info/channel_info.etc \
-      rootfs/home/template/neople/game/channel_info/version \
-      rootfs/home/template/neople/channel/channel_amd64 \
-      rootfs/home/template/neople/channel/channel_info/channel_info.etc \
-      rootfs/home/template/neople/channel/channel_info/version \
-      rootfs/home/template/init/run/start_game.sh \
-      rootfs/home/template/init/run/start_channel.sh \
-      payload/gm_dist.tgz \
-      > meta/checksums.txt
-  )
-}
-
-refresh_rootfs_meta() {
-  local out_dir="$1"
-  local meta_root="$out_dir/rootfs/opt/shenji-overlay-meta"
-
-  rm -rf "$meta_root"
-  mkdir -p "$meta_root"
-
-  if [[ -d "$out_dir/meta" ]]; then
-    cp -a "$out_dir/meta"/. "$meta_root"/
-    rm -rf "$meta_root/source_scripts"
   fi
 }
 
@@ -266,7 +221,6 @@ main() {
   mkdir -p "$out_dir"
   rm -rf "$out_dir/data" "$out_dir/optional"
   rm -f "$out_dir/payload/dp_overlay.tgz"
-  mkdir -p "$out_dir/meta"
 
   prepare_rootfs_layout "$out_dir"
   copy_vmdk_files_to_rootfs "$source_root" "$out_dir"
@@ -274,8 +228,6 @@ main() {
   copy_sidecar_files "$source_root" "$out_dir"
   copy_support_files "$out_dir"
   pack_payloads "$out_dir"
-  write_metadata "$source_input" "$source_root" "$out_dir"
-  refresh_rootfs_meta "$out_dir"
 
   cat <<EOF
 同步完成:
@@ -284,7 +236,6 @@ main() {
 已生成:
   $out_dir/rootfs
   $out_dir/payload/gm_dist.tgz
-  $out_dir/meta
 EOF
 
   if [[ "${DP2_SUPPRESS_INTERMEDIATE_HINTS:-0}" != "1" ]]; then

@@ -35,7 +35,6 @@
 - `rootfs/home/template/neople/game/*`
 - `rootfs/home/template/neople/channel/*`
 - `payload/gm_dist.tgz`
-- `meta/*`
 
 注意:
 
@@ -58,7 +57,7 @@
 
 说明:
 
-- `meta/db_compare/*`、`meta/db_overlay_summary.txt` 这类分析报告默认只保留在本地，不再提交到 GitHub
+- `meta/db_compare/*` 这类分析报告默认只保留在本地，不再提交到 GitHub
 
 核心输出:
 
@@ -145,13 +144,13 @@ tmp/db_dumps/vmdk_latest_all.sql.gz
 plugin/shenji_vmdk/build_db_overlay.sh /path/to/vmdk_latest_all.sql.gz
 ```
 
-关于原始 `run` / `run_nopvp` / `stop` 快照:
+关于启动脚本维护策略:
 
-- `sync_from_vmdk.sh` 每次都会直接从 VMDK 的 `root/` 目录重新复制这三份脚本
-- 快照先写到 `overlay_dir/meta/source_scripts/`
-- 仓库里长期保留的只有这份 `meta/source_scripts/` 快照
-- `package_shenji_overlay.sh` 打包 DNF 工件时，才会把它们放进最终 rootfs 的 `opt/shenji-overlay-meta/source_scripts/`
-- 所以一键执行 `update_from_vmdk.sh` 时，如果 VMDK 更新了，这三份脚本也会跟着刷新
+- 仓库现在只长期维护 `rootfs/home/template/init/run/start_game.sh`
+- 仓库现在只长期维护 `rootfs/home/template/init/run/start_channel.sh`
+- 不再额外保留 `channel-start.sh.template` / `game-start.sh.template`
+- 也不再把 VMDK 原始 `run` / `run_nopvp` / `stop` 快照长期放在仓库里
+- 如果后续要回看神迹原始脚本，应直接从挂载的 VMDK 或单独备份中取
 
 ## 关于数据库对比
 

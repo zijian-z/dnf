@@ -11,17 +11,16 @@
 
 ## 先看结论
 
-当前目录里真正重要的东西只有三类:
+当前目录里真正需要长期维护的东西只有两类:
 
 - `rootfs/`
   DNF 主镜像唯一发布输入
 - `payload/gm_dist.tgz`
   GodOfGM 发布输入
-- `meta/`
-  数据库对比报告、校验信息、来源信息
 
 仓库里不再保留 `deploy/dnf/docker-compose/shenji_overlay/data/` 作为发布输入。
 `./data` 现在只表示容器运行时外部卷目录。
+`meta/` 仅在执行数据库对比时作为本地分析输出临时生成，不再作为仓库常驻内容。
 
 ## 核心流程
 
@@ -58,10 +57,6 @@ plugin/shenji_vmdk/sync_from_vmdk.sh /path/to/DNFServer.vmdk
 - `rootfs/home/template/neople/game/*`
 - `rootfs/home/template/neople/channel/*`
 - `payload/gm_dist.tgz`
-
-同时会把原始 `run` / `run_nopvp` / `stop` 快照写入:
-
-- `meta/source_scripts/*`
 
 #### 2. 从 VMDK 备份数据库
 
@@ -137,28 +132,20 @@ deploy/dnf/docker-compose/shenji_overlay
 ├── docker-compose.override.yaml
 ├── docker-compose.release.yaml
 ├── .env.example
-├── meta
-│   ├── checksums.txt
-│   ├── db_compare/
-│   ├── db_overlay_summary.txt
-│   ├── recommended-env.txt
-│   └── shenji_overlay.manifest
 ├── payload
 │   └── gm_dist.tgz
 └── rootfs
     ├── home/template/init/
-    ├── home/template/neople/
-    └── opt/shenji-overlay-meta/
+    └── home/template/neople/
 ```
 
 其中:
 
 - `rootfs/` 是 DNF 主镜像唯一发布输入
 - `rootfs/home/template/init/dp.tgz` 是由 VMDK 内完整 `dp2/` 目录重打包得到的 DP 包
-- `rootfs/opt/shenji-overlay-meta/source_scripts/` 不再作为仓库常驻文件；只有打包 DNF 工件时，才会由 `meta/source_scripts/` 注入进去
 - `payload/gm_dist.tgz` 是 GodOfGM 打包输入
-- `meta/` 是仓库侧的分析与校验输出
-- `meta/source_scripts/` 是原始 `run` / `run_nopvp` / `stop` 的仓库侧快照来源；`update_from_vmdk.sh` 每次会先从 VMDK 刷新这里，再重建 `rootfs/`
+- `meta/db_compare/` 只在执行数据库对比时临时生成，用于本地分析
+- 启动脚本现在只维护 `rootfs/home/template/init/run/*.sh` 这一套，不再额外保留 template 重复脚本
 
 ## 固定约束
 
@@ -484,13 +471,9 @@ README 前面的运行日志和当前 `start_game.sh` 也对应这条逻辑。
 
 - `deploy/dnf/docker-compose/shenji_overlay/meta/db_compare/schema_summary.txt`
 - `deploy/dnf/docker-compose/shenji_overlay/meta/db_compare/table_structure_diff.txt`
-- `deploy/dnf/docker-compose/shenji_overlay/meta/db_overlay_summary.txt`
-- `deploy/dnf/docker-compose/shenji_overlay/meta/checksums.txt`
 - `.artifacts/shenji-overlay-summary.txt`
-- `deploy/dnf/docker-compose/shenji_overlay/meta/source_scripts/run`
-- `deploy/dnf/docker-compose/shenji_overlay/meta/source_scripts/stop`
 
 其中:
 
-- `meta/db_compare/*`、`meta/db_overlay_summary.txt` 属于本地产物，默认不会提交到 GitHub
-- `meta/source_scripts/*` 只是神迹原始脚本留档，不参与当前运行链路；打包时才会被拷入最终 rootfs
+- `meta/db_compare/*` 属于本地产物，默认不会提交到 GitHub
+- 启动问题优先看 `rootfs/home/template/init/run/*.sh` 与容器内 `/data/run/*.sh`

@@ -91,13 +91,6 @@ main() {
 
   cp -a "$overlay_dir/rootfs"/. "$dnf_root"/
 
-  if [[ -d "$overlay_dir/meta/source_scripts" ]]; then
-    mkdir -p "$dnf_root/opt/shenji-overlay-meta"
-    rm -rf "$dnf_root/opt/shenji-overlay-meta/source_scripts"
-    mkdir -p "$dnf_root/opt/shenji-overlay-meta/source_scripts"
-    cp -a "$overlay_dir/meta/source_scripts"/. "$dnf_root/opt/shenji-overlay-meta/source_scripts"/
-  fi
-
   if [[ -f "$overlay_dir/rootfs/home/template/init/Script.pvf" ]]; then
     include_pvf="yes"
   fi
