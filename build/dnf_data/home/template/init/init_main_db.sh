@@ -48,9 +48,9 @@ done
 # 配置game账户权限
 echo "main db: flush privileges....."
 mysql -h $CUR_MAIN_DB_HOST -P $CUR_MAIN_DB_PORT -u root -p$CUR_MAIN_DB_ROOT_PASSWORD <<EOF
-delete from mysql.user where user='game' and host='$CUR_MAIN_DB_GAME_ALLOW_IP';
+delete from mysql.user where user='game' and host='%';
 flush privileges;
-grant all privileges on *.* to 'game'@'$CUR_MAIN_DB_GAME_ALLOW_IP' identified by '$DNF_DB_GAME_PASSWORD';
+grant all privileges on *.* to 'game'@'%' identified by '$DNF_DB_GAME_PASSWORD';
 flush privileges;
 EOF
 

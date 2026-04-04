@@ -129,9 +129,9 @@ done
 # game账户连接大区数据库需要配置game账户权限[主数据库和大区数据库可能是独立的需要单独配置]
 echo "server group db: flush privileges....."
 mysql -h $CUR_SG_DB_HOST -P $CUR_SG_DB_PORT -u root -p$CUR_SG_DB_ROOT_PASSWORD <<EOF
-delete from mysql.user where user='game' and host='$CUR_SG_DB_GAME_ALLOW_IP';
+delete from mysql.user where user='game' and host='%';
 flush privileges;
-grant all privileges on *.* to 'game'@'$CUR_SG_DB_GAME_ALLOW_IP' identified by '$DNF_DB_GAME_PASSWORD';
+grant all privileges on *.* to 'game'@'%' identified by '$DNF_DB_GAME_PASSWORD';
 flush privileges;
 EOF
 # 测试并查询数据库连接设置
