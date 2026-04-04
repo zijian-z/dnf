@@ -276,7 +276,7 @@ cd deploy/dnf/docker-compose/shenji_overlay
 1. `dnf-shenji-overlay:<tag>`
 2. `dnf-shenji-godofgm:<tag>`
 
-`dnf:debian13-qf1031-*` 只是构建基底，不是最终运行镜像。
+`dnf:centos7-qf1031-*` 只是构建基底，不是最终运行镜像。
 
 部署时最常用的文件是:
 
@@ -348,8 +348,8 @@ docker compose --env-file .env -f docker-compose.release.yaml logs -f godofgm
 
 当前 overlay 模板和清风镜像里的游戏进程启动链路，不是“只挂一个 `frida.so`”这么简单，而是:
 
-1. `LD_PRELOAD` 先挂 `/dp2/libhook.so`
-2. `libhook.so` 实际来自神迹 `libdp2pre.so`，负责把 `/dp2/libdp2.so` 拉起来
+1. `LD_PRELOAD` 优先挂 `/dp2/libdp2pre.so`
+2. 如果缺少 `libdp2pre.so`，再回退到 `/dp2/libhook.so`
 3. `libdp2.so` 初始化 DP2 运行环境
 4. `libdp2.xml` 把 `df_game_r`、`df_game_r.lua`、`libdp2game.so` 串起来
 5. 游戏进程额外挂 `libfd.so`
@@ -358,6 +358,7 @@ docker compose --env-file .env -f docker-compose.release.yaml logs -f godofgm
 这也是为什么当前 overlay 不只是保留一个 `frida.so`，而是保留整套 `dp.tgz + libfd.so + 启动脚本`。
 这里描述的是当前仓库内 overlay / 清风镜像的加载方式，不等同于“原始 VMDK 自带 run 脚本已经被完整验证”。
 当前仓库保留的神迹原始 `run` 快照里，游戏侧实际使用的是 `LD_PRELOAD="/dp2/libdp2pre.so:/home/neople/game/libfd.so"`。
+当前 overlay 也默认贴近这条 CentOS7 启动语义，不再额外注入 Debian / Ubuntu 系列的 glibc 兼容层。
 
 ### `libhook.so`
 

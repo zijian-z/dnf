@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=llnut/dnf:debian13-qf1031-latest
+ARG BASE_IMAGE=llnut/dnf:centos7-qf1031-latest
 FROM ${BASE_IMAGE}
 
 LABEL org.opencontainers.image.title="DNF Shenji Overlay"

@@ -53,13 +53,21 @@ if [ -n "${old_pid}" ]; then
 fi
 rm -rf "pid/${channel_name}.pid"
 
-# frida.so 仍会在进程内被 dp2 额外 dlopen，一些神迹库还依赖旧 glibc 的私有入口。
-preload_chain="/usr/lib/libdlopen_compat.so:/usr/lib/libglibc_compat.so"
+append_preload() {
+  local library_path="$1"
+  if [ -n "${preload_chain}" ]; then
+    preload_chain="${preload_chain}:${library_path}"
+  else
+    preload_chain="${library_path}"
+  fi
+}
+
+preload_chain=""
 if [ -f /dp2/libdp2pre.so ]; then
-  preload_chain="${preload_chain}:/dp2/libdp2pre.so"
+  append_preload /dp2/libdp2pre.so
   echo "using original Shenji /dp2/libdp2pre.so"
 elif [ -f /dp2/libhook.so ]; then
-  preload_chain="${preload_chain}:/dp2/libhook.so"
+  append_preload /dp2/libhook.so
   echo "fallback to /dp2/libhook.so"
 else
   echo "warning: no /dp2/libdp2pre.so or /dp2/libhook.so found"
@@ -69,19 +77,23 @@ fi
 if [ -f /data/libfd.so ]; then
   cp /data/libfd.so /home/neople/game/libfd.so
   chmod 777 /home/neople/game/libfd.so
-  preload_chain="${preload_chain}:/home/neople/game/libfd.so"
+  append_preload /home/neople/game/libfd.so
   echo "using Shenji libfd.so from /data/libfd.so"
 elif [ -f /home/neople/game/libfd.so ]; then
-  preload_chain="${preload_chain}:/home/neople/game/libfd.so"
+  append_preload /home/neople/game/libfd.so
   echo "using existing /home/neople/game/libfd.so"
 elif [ -f /home/neople/game/frida.so ]; then
-  preload_chain="${preload_chain}:/home/neople/game/frida.so"
+  append_preload /home/neople/game/frida.so
   echo "libfd.so missing, fallback to frida.so"
 else
   echo "warning: no libfd.so/frida.so found, preload only dp2 preloader"
 fi
 
 echo "LD_PRELOAD=${preload_chain}"
-LD_PRELOAD="${preload_chain}" ./df_game_r "${channel_name}" start
+if [ -n "${preload_chain}" ]; then
+  LD_PRELOAD="${preload_chain}" ./df_game_r "${channel_name}" start
+else
+  ./df_game_r "${channel_name}" start
+fi
 sleep 2
 cat "pid/${channel_name}.pid" | xargs -n1 -I{} tail --pid={} -f /dev/null

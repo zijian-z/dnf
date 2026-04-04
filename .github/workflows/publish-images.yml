@@ -63,8 +63,8 @@ jobs:
             echo "base_repo=${base_repo}"
             echo "overlay_repo=${overlay_repo}"
             echo "gm_repo=${gm_repo}"
-            echo "base_version_tag=${base_repo}:debian13-qf1031-${version}"
-            echo "base_latest_tag=${base_repo}:debian13-qf1031-latest"
+            echo "base_version_tag=${base_repo}:centos7-qf1031-${version}"
+            echo "base_latest_tag=${base_repo}:centos7-qf1031-latest"
             echo "overlay_version_tag=${overlay_repo}:${version}"
             echo "overlay_latest_tag=${overlay_repo}:latest"
             echo "gm_version_tag=${gm_repo}:${version}"
@@ -81,8 +81,7 @@ jobs:
         run: |
           set -euo pipefail
           docker build \
-            -f build/Debian13-DNF/Dockerfile \
-            --build-arg DEBIAN_BASE_IMAGE=debian:stable-slim \
+            -f build/Centos7-DNF/Dockerfile \
             -t "${{ steps.meta.outputs.base_version_tag }}" \
             .
 
